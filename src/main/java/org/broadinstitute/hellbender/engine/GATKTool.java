@@ -6,16 +6,21 @@ import htsjdk.samtools.SAMSequenceDictionary;
 import htsjdk.samtools.SamReaderFactory;
 import htsjdk.samtools.util.Locatable;
 import htsjdk.tribble.Feature;
+import htsjdk.variant.variantcontext.writer.Options;
+import htsjdk.variant.variantcontext.writer.VariantContextWriter;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.ArgumentCollection;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgram;
+import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.cmdline.argumentcollections.*;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.SequenceDictionaryUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.io.IOUtils;
 import org.broadinstitute.hellbender.utils.read.ReadUtils;
 import org.broadinstitute.hellbender.utils.read.SAMFileGATKReadWriter;
+import org.broadinstitute.hellbender.utils.variant.GATKVariantContextUtils;
 
 import java.io.File;
 import java.util.Collections;
@@ -43,11 +48,30 @@ public abstract class GATKTool extends CommandLineProgram {
     @Argument(fullName = "disableSequenceDictionaryValidation", shortName = "disableSequenceDictionaryValidation", doc = "If specified, do not check the sequence dictionaries from our inputs for compatibility. Use at your own risk!", optional = true)
     private boolean disableSequenceDictionaryValidation = false;
 
-    @Argument(fullName="createOutputBamIndex", shortName="createOutputBamIndex", doc = "If true, create a BAM/CRAM index when writing a coordinate-sorted BAM/CRAM file", optional=true)
+    @Argument(fullName=StandardArgumentDefinitions.CREATE_OUTPUT_BAM_INDEX_LONG_NAME,
+            shortName=StandardArgumentDefinitions.CREATE_OUTPUT_BAM_INDEX_SHORT_NAME,
+            doc = "If true, create a BAM/CRAM index when writing a coordinate-sorted BAM/CRAM file.", optional=true)
     public boolean createOutputBamIndex = true;
 
-    @Argument(fullName="createOutputBamMD5", shortName="createOutputBamMD5", doc = "If true, create a MD5 digest for any BAM/SAM/CRAM file created", optional=true)
+    @Argument(fullName=StandardArgumentDefinitions.CREATE_OUTPUT_BAM_MD5_LONG_NAME,
+            shortName=StandardArgumentDefinitions.CREATE_OUTPUT_BAM_MD5_SHORT_NAME,
+            doc = "If true, create a MD5 digest for any BAM/SAM/CRAM file created", optional=true)
     public boolean createOutputBamMD5 = false;
+
+    @Argument(fullName=StandardArgumentDefinitions.CREATE_OUTPUT_VARIANT_INDEX_LONG_NAME,
+            shortName=StandardArgumentDefinitions.CREATE_OUTPUT_VARIANT_INDEX_SHORT_NAME,
+            doc = "If true, create a VCF index when writing a coordinate-sorted VCF file.", optional=true)
+    public boolean createOutputVariantIndex = true;
+
+    @Argument(fullName=StandardArgumentDefinitions.CREATE_OUTPUT_VARIANT_MD5_LONG_NAME,
+            shortName=StandardArgumentDefinitions.CREATE_OUTPUT_VARIANT_MD5_SHORT_NAME,
+            doc = "If true, create a a MD5 digest any VCF file created.", optional=true)
+    public boolean createOutputVariantMD5 = false;
+
+    @Argument(fullName= StandardArgumentDefinitions.LENIENT_LONG_NAME,
+            shortName = StandardArgumentDefinitions.LENIENT_SHORT_NAME,
+            doc = "Lenient processing of VCF files", common = true, optional = true)
+    protected boolean lenientVCFProcessing = false;
 
     @Argument(fullName="addOutputSAMProgramRecord", shortName="addOutputSAMProgramRecord", doc = "If true, adds a PG tag to created SAM/BAM/CRAM files.", optional=true)
     public boolean addOutputSAMProgramRecord = true;
@@ -418,6 +442,47 @@ public abstract class GATKTool extends CommandLineProgram {
                                 createOutputBamMD5
                         )
         );
+    }
+
+    /**
+     * Creates a VariantContextWriter who's outputFile type is determined by
+     * the outFile's extension, using the best available sequence dictionary for
+     * this tool, and default index, leniency and md5 generation settings.
+     *
+     * @param outFile output File for this writer. May not be null.
+     * @returns VariantContextWriter must be closed by the caller
+     */
+    public VariantContextWriter createVCFWriter(final File outFile) {
+        Utils.nonNull(outFile);
+
+        final SAMSequenceDictionary sequenceDictionary = getBestAvailableSequenceDictionary();
+        Options options[];
+
+        if (createOutputVariantIndex) {
+            if (null == sequenceDictionary) {
+                logger.warn("An variant index will not be created - a sequence dictionary is required to create an output index");
+                // fall through and create without an index
+                options = lenientVCFProcessing ?
+                        new Options[]{Options.ALLOW_MISSING_FIELDS_IN_HEADER} :
+                        new Options[]{};
+            }
+            else {
+                options = lenientVCFProcessing ?
+                        new Options[]{Options.ALLOW_MISSING_FIELDS_IN_HEADER, Options.INDEX_ON_THE_FLY} :
+                        new Options[]{Options.INDEX_ON_THE_FLY};
+            }
+        }
+        else {
+            options = lenientVCFProcessing ?
+                    new Options[]{Options.ALLOW_MISSING_FIELDS_IN_HEADER} :
+                    new Options[]{};
+        }
+
+        return GATKVariantContextUtils.createVCFWriter(
+                outFile,
+                sequenceDictionary,
+                createOutputVariantMD5,
+                options);
     }
 
     /**
