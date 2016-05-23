@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.tools.walkers.genotyper;
 
 import htsjdk.variant.variantcontext.*;
+import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.MathUtils;
 import org.broadinstitute.hellbender.utils.Utils;
 import org.broadinstitute.hellbender.utils.collections.Permutation;
@@ -22,7 +23,7 @@ import java.util.stream.IntStream;
 public final class AlleleSubsettingUtils {
     private AlleleSubsettingUtils() {}  // prevent instantiation
     private static final int PL_INDEX_OF_HOM_REF = 0;
-    private static final int MAX_LENGTH_FOR_PL_LOGGING = 100; // if PL vectors longer than this # of elements, don't log them
+    public static final int NUM_OF_STRANDS = 2; // forward and reverse strands
 
     private static final GenotypeLikelihoodCalculators GL_CALCS = new GenotypeLikelihoodCalculators();
 
@@ -32,8 +33,8 @@ public final class AlleleSubsettingUtils {
      *
      * @param originalGs               the original GenotypesContext
      * @param originalAlleles          the original alleles
-     * @param allelesToKeep             the subset of alleles to use with the new Genotypes
-     * @param assignmentMethod          assignment strategy for the (subsetted) PLs
+     * @param allelesToKeep            the subset of alleles to use with the new Genotypes
+     * @param assignmentMethod         assignment strategy for the (subsetted) PLs
      * @return                         a new non-null GenotypesContext
      */
     public static GenotypesContext subsetAlleles(final GenotypesContext originalGs, final int defaultPloidy,
@@ -71,6 +72,13 @@ public final class AlleleSubsettingUtils {
 
             GATKVariantContextUtils.makeGenotypeCall(g.getPloidy(), gb, assignmentMethod, newLikelihoods, allelesToKeep);
 
+            // restrict SAC to the new allele subset
+            if (g.hasExtendedAttribute(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY)) {
+                final int[] newSACs = subsetSACAlleles(g, allelesToKeep, originalAlleles);
+                if (newSACs != null)
+                    gb.attribute(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY, newSACs);
+            }
+
             // restrict AD to the new allele subset
             if(g.hasAD()) {
                 final int[] oldAD = g.getAD();
@@ -80,6 +88,152 @@ public final class AlleleSubsettingUtils {
             newGTs.add(gb.make());
         }
         return newGTs;
+    }
+
+    /**
+     * From a given genotype, extract a given subset of alleles and return the new SACs
+     * @param g                             genotype to subset
+     * @param allelesToUse                  alleles to subset
+     * @param originalAlleles               the original alleles
+     * @return                              the subsetted SACs
+     */
+    private static int[] subsetSACAlleles(final Genotype g, final List<Allele> allelesToUse, final List<Allele> originalAlleles){
+
+        if ( !g.hasExtendedAttribute(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY) )
+            return null;
+
+        // we need to determine which of the alternate alleles (and hence the likelihoods) to use and carry forward
+        final int numOriginalAltAlleles = originalAlleles.size() - 1;
+        final int numNewAltAlleles = allelesToUse.size() - 1;
+        final List<Integer> sacIndicesToUse = numOriginalAltAlleles == numNewAltAlleles ? null : determineSACIndicesToUse(originalAlleles, allelesToUse);
+
+        return makeNewSACs(g, sacIndicesToUse);
+    }
+
+    /**
+     * Make a new SAC array from the a subset of the genotype's original SAC
+     *
+     * @param g               the genotype
+     * @param sacIndicesToUse the indices in the SAC to use given the allelesToUse (@see #determineSACIndicesToUse())
+     * @return subset of SACs from the original genotype, the original SACs if sacIndicesToUse is null
+     */
+    public static int[] makeNewSACs(final Genotype g, final List<Integer> sacIndicesToUse) {
+
+        Utils.nonNull(g, "Genotype is null");
+
+        final int[] oldSACs  = getSACs(g);
+
+        if (sacIndicesToUse == null) {
+            return oldSACs;
+        } else {
+            final int[] newSACs = new int[sacIndicesToUse.size()];
+            int newIndex = 0;
+            for (final int oldIndex : sacIndicesToUse) {
+                newSACs[newIndex++] = oldSACs[oldIndex];
+            }
+            return newSACs;
+        }
+    }
+
+    /**
+     * Get the genotype SACs
+     *
+     * @param g the genotype
+     * @return an arrays of SACs
+     * @throws GATKException if the type of the SACs is unexpected
+     */
+    private static int[] getSACs(final Genotype g) {
+
+        Utils.nonNull(g, "Genotype is null");
+        if ( !g.hasExtendedAttribute(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY) )
+            throw new IllegalArgumentException("Genotype must have SAC");
+
+        if ( g.getExtendedAttributes().get(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY).getClass().equals(String.class) ) {
+            final String SACsString = (String) g.getExtendedAttributes().get(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY);
+            ArrayList<String> stringSACs = Utils.split(SACsString, ",");
+            final int[] intSACs = new int[stringSACs.size()];
+            int i = 0;
+            for (String sac : stringSACs)
+                intSACs[i++] = Integer.parseInt(sac);
+
+            return intSACs;
+        }
+        else if ( g.getExtendedAttributes().get(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY).getClass().equals(int[].class) )
+            return (int[]) g.getExtendedAttributes().get(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY);
+        else
+            throw new GATKException("Unexpected SAC type");
+    }
+
+    /**
+     * Find the strand allele count indices to use for a selected set of alleles
+     *
+     * @param originalAlleles the original alleles
+     * @param allelesToUse the subset of alleles to use
+     * @return a list of SAC indices to use or null if none
+     */
+    public static List<Integer> determineSACIndicesToUse(final List<Allele> originalAlleles, final List<Allele> allelesToUse) {
+
+        Utils.nonNull(originalAlleles, "Original alleles is null");
+        Utils.nonNull(allelesToUse, "Alleles to use is null");
+
+        // the bitset representing the allele indices we want to keep
+        final BitSet alleleIndicesToUse = getAlleleIndexBitset(originalAlleles, allelesToUse);
+
+        // an optimization: if we are supposed to use all (or none in the case of a ref call) of the alleles,
+        // then we can keep the SACs as is; otherwise, we determine which ones to keep
+        if (alleleIndicesToUse.cardinality() == alleleIndicesToUse.size()) {
+            return null;
+        }
+
+        return getSACIndices(alleleIndicesToUse);
+    }
+
+    /**
+     * Given the original alleles and a list of alleles from that VC to keep,
+     * returns a bitset representing which allele indices should be kept
+     *
+     * @param originalAlleles the original alleles
+     * @param allelesToKeep   the list of alleles to keep
+     * @return non-null bitset
+     */
+    public static BitSet getAlleleIndexBitset(final List<Allele> originalAlleles, final List<Allele> allelesToKeep) {
+        final int numOriginalAlleles = originalAlleles.size();
+        final BitSet alleleIndicesToKeep = new BitSet(numOriginalAlleles);
+
+        // the reference Allele is still used
+        alleleIndicesToKeep.set(0);
+        for ( int i = 0; i < numOriginalAlleles; i++ ) {
+            if ( originalAlleles.get(i).isNonReference() ) {
+                if (allelesToKeep.contains(originalAlleles.get(i))) {
+                    alleleIndicesToKeep.set(i);
+                }
+            }
+        }
+
+        return alleleIndicesToKeep;
+    }
+
+    /**
+     * Get the actual strand aleele counts indices to use given the corresponding allele indices
+     *
+     * @param alleleIndicesToUse    the bitset representing the alleles to use (@see #getAlleleIndexBitset)
+     * @return a non-null List
+     */
+    private static List<Integer> getSACIndices(final BitSet alleleIndicesToUse) {
+
+        Utils.nonNull(alleleIndicesToUse, "Alleles to use is null");
+        if (alleleIndicesToUse.isEmpty()) throw new IllegalArgumentException("cannot have no alleles to use");
+
+        final List<Integer> result = new ArrayList<>(NUM_OF_STRANDS * alleleIndicesToUse.size());
+
+        for (int SACindex = 0; SACindex < alleleIndicesToUse.size(); SACindex++) {
+            if (alleleIndicesToUse.get(SACindex)) {
+                result.add(NUM_OF_STRANDS * SACindex);
+                result.add(NUM_OF_STRANDS * SACindex + 1);
+            }
+        }
+
+        return result;
     }
 
     /**
