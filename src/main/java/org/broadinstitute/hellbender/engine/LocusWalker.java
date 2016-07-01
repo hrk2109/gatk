@@ -2,8 +2,11 @@ package org.broadinstitute.hellbender.engine;
 
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMReadGroupRecord;
-import org.broadinstitute.hellbender.cmdline.Argument;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKCommandLinePluginDescriptor;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKReadFilterPluginDescriptor;
+import org.broadinstitute.hellbender.cmdline.argumentcollections.ReadInputArgumentCollection;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
+import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.filters.WellformedReadFilter;
 import org.broadinstitute.hellbender.utils.iterators.IntervalOverlappingIterator;
@@ -27,9 +30,6 @@ import java.util.stream.StreamSupport;
  * @author Daniel Gomez-Sanchez (magicDGS)
  */
 public abstract class LocusWalker extends GATKTool {
-
-    @Argument(fullName = "disable_all_read_filters", shortName = "f", doc = "Disable all read filters", common = false, optional = true)
-    public boolean disableAllReadFilters = false;
 
     /**
      * Should the LIBS keep unique reads? Tools that do should override to return {@code true}.
@@ -65,20 +65,61 @@ public abstract class LocusWalker extends GATKTool {
     }
 
     /**
-     * Returns the read filter (simple or composite) that will be applied to the reads in each window.
+     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Uses the read filter plugin.
+     */
+    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() {
+        return Collections.singletonList(GATKReadFilterPluginDescriptor.class);
+    }
+
+    /**
+     * Returns the read filter (simple or composite) that will be applied to the reads before calling {@link #apply}.
+     * The default implementation combines the default read filters for this tool (returned by
+     * {@link org.broadinstitute.hellbender.engine.LocusWalker#getDefaultReadFilters} with any read filter command
+     * line arguments specified by the user; wraps each filter in the resulting list with a CountingReadFilter;
+     * and returns a single composite filter resulting from the list by and'ing them together.
      *
-     * The default implementation uses the {@link WellformedReadFilter} filter with all default options,
-     * as well as the {@link ReadFilterLibrary#MAPPED} filter.
+     * Default tool implementation of {@link #traverse()} calls this method once before iterating
+     * over the reads and reuses the filter object to avoid object allocation. Nevertheless, keeping state in filter
+     * objects is strongly discouraged.
      *
-     * Default implementation of {@link #traverse()} calls this method once before iterating
-     * over the reads and reuses the filter object to avoid object allocation. Nevertheless, keeping state in filter objects is strongly discouraged.
-     *
-     * Subclasses can override to provide their own filters
-     * Multiple filters can be composed by using {@link org.broadinstitute.hellbender.engine.filters.ReadFilter} composition methods.
+     * Multiple filters can be composed by using {@link org.broadinstitute.hellbender.engine.filters.ReadFilter}
+     * composition methods.
      */
     public CountingReadFilter makeReadFilter(){
-        return new CountingReadFilter("Wellformed", new WellformedReadFilter(getHeaderForReads()))
-                .and(new CountingReadFilter("Mapped", ReadFilterLibrary.MAPPED));
+        // This filter gets returned if all others are disabled.
+        CountingReadFilter fallbackFilter = new CountingReadFilter(
+                ReadFilterLibrary.ALLOW_ALL_READS.getClass().getSimpleName(),
+                ReadFilterLibrary.ALLOW_ALL_READS);
+
+        // Unless all filters are disabled, merge the tool's default filters with the users's command line
+        // read filter requests, then initialize the resulting filters and wrap each one in a CountingReadFilter.
+        GATKReadFilterPluginDescriptor readFilterPlugin =
+                (GATKReadFilterPluginDescriptor)
+                        commandLineParser.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
+        return readArguments.disableAllReadFilters == true ?
+                fallbackFilter :
+                readFilterPlugin.getMergedReadFilters(
+                        getDefaultReadFilters(),
+                        getHeaderForReads(),
+                        f -> new CountingReadFilter(f.getClass().getSimpleName(), f),
+                        (f1 , f2) -> f1.and(f2),
+                        fallbackFilter
+                );
+    }
+
+    /**
+     * Returns the default list of CommandLineReadFilters that are used for this tool. The filters returned
+     * by this method are subject to selective enabling/disabling by the user via the command line. The
+     * default implementation uses the {@link WellformedReadFilter} and {@link ReadFilterLibrary.Mapped}filter
+     * with all default options. Subclasses can override to provide alternative filters.
+     * @return List of individual filters to be applied for this tool.
+     */
+    public List<ReadFilter> getDefaultReadFilters() {
+        final List<ReadFilter> defaultFilters = new ArrayList<>(2);
+        defaultFilters.add(new WellformedReadFilter(getHeaderForReads()));
+        defaultFilters.add(new ReadFilterLibrary.Mapped());
+        return defaultFilters;
     }
 
     /**
@@ -118,9 +159,7 @@ public abstract class LocusWalker extends GATKTool {
         final Set<String> samples = header.getReadGroups().stream()
                                           .map(SAMReadGroupRecord::getSample)
                                           .collect(Collectors.toSet());
-        CountingReadFilter countedFilter = disableAllReadFilters ?
-                new CountingReadFilter("Allow all", ReadFilterLibrary.ALLOW_ALL_READS ) :
-                makeReadFilter();
+        CountingReadFilter countedFilter = makeReadFilter();
         // get the LIBS
         LocusIteratorByState libs = new LocusIteratorByState(new ReadFilteringIterator(reads.iterator(), countedFilter), getDownsamplingMethod(), includeDeletions(), includeNs(), keepUniqueReadListInLibs(), samples, header);
         // prepare the iterator

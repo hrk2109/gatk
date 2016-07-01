@@ -91,7 +91,10 @@ public class ReadShardUnitTest extends BaseTest {
     public Object[][] shardIterationTestData() {
         final ReadsDataSource readsSource = new ReadsDataSource(new File(publicTestDir + "org/broadinstitute/hellbender/engine/reads_data_source_test1.bam"));
 
-        final ReadFilter keepReadBOnly = read -> read.getName().equals("b");
+        final ReadFilter keepReadBOnly = new ReadFilter() {
+            private static final long serialVersionUID = 1L;
+            @Override public boolean test(final GATKRead read){return read.getName().equals("b");}};
+
         final ReadShard filteredShard = new ReadShard(new SimpleInterval("1", 200, 210), new SimpleInterval("1", 200, 210), readsSource);
         filteredShard.setReadFilter(keepReadBOnly);
 

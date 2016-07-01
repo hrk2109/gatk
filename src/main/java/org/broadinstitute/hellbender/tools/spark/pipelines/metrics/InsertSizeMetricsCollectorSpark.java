@@ -104,7 +104,7 @@ public final class InsertSizeMetricsCollectorSpark
     /**
      * Customized serializable reads filter, based on cmd line arguments provided
      */
-    private static final class InsertSizeMetricsReadFilter implements ReadFilter{
+    private static final class InsertSizeMetricsReadFilter extends ReadFilter{
         private static final long serialVersionUID = 1L;
 
         private final ReadFilter combinedReadFilter;
@@ -119,18 +119,35 @@ public final class InsertSizeMetricsCollectorSpark
             final InsertSizeMetricsArgumentCollection.EndToUse endVal = whichEnd;
 
             ReadFilter tempFilter = ReadFilterLibrary.MAPPED;
-            tempFilter = tempFilter.and(GATKRead::isPaired);
-            tempFilter = tempFilter.and(read -> 0!=read.getFragmentLength());
-            tempFilter = tempFilter.and(read -> endVal == (read.isFirstOfPair() ?
-                    InsertSizeMetricsArgumentCollection.EndToUse.FIRST :
-                    InsertSizeMetricsArgumentCollection.EndToUse.SECOND));
+            tempFilter = tempFilter.and(new ReadFilter() {
+                static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return read.isPaired();}});
+            tempFilter = tempFilter.and(new ReadFilter() {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return 0!=read.getFragmentLength();}});
+            tempFilter = tempFilter.and(new ReadFilter() {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read) {
+                    return endVal == (read.isFirstOfPair() ?
+                            InsertSizeMetricsArgumentCollection.EndToUse.FIRST :
+                            InsertSizeMetricsArgumentCollection.EndToUse.SECOND);
+                }});
+            if(filterNonProperlyPairedReads)  { tempFilter = tempFilter.and(new ReadFilter() {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return read.isProperlyPaired();}});}
+            if(filterDuplicatedReads)         { tempFilter = tempFilter.and(new ReadFilter (){
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return !read.isDuplicate();}});}
+            if(filterSecondaryAlignments)     { tempFilter = tempFilter.and(new ReadFilter() {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return !read.isSecondaryAlignment();}});}
+            if(filterSupplementaryAlignments) { tempFilter = tempFilter.and(new ReadFilter() {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return !read.isSupplementaryAlignment();}});}
 
-            if(filterNonProperlyPairedReads)  { tempFilter = tempFilter.and(GATKRead::isProperlyPaired); }
-            if(filterDuplicatedReads)         { tempFilter = tempFilter.and(read -> !read.isDuplicate()); }
-            if(filterSecondaryAlignments)     { tempFilter = tempFilter.and(read -> !read.isSecondaryAlignment()); }
-            if(filterSupplementaryAlignments) { tempFilter = tempFilter.and(read -> !read.isSupplementaryAlignment()); }
-
-            if(0!=MQThreshold)  { tempFilter = tempFilter.and(read -> read.getMappingQuality() >= MQThreshold);}
+            if(0!=MQThreshold)  { tempFilter = tempFilter.and(new ReadFilter() {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean test(final GATKRead read){return read.getMappingQuality() >= MQThreshold;}});};
 
             combinedReadFilter = tempFilter;
         }

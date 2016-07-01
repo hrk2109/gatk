@@ -8,6 +8,7 @@ import joptsimple.OptionSpec;
 import joptsimple.OptionSpecBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKCommandLinePluginDescriptor;
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.exceptions.UserException;
 
@@ -23,6 +24,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -71,6 +73,14 @@ public final class CommandLineParser {
     public static final String COMMENT = "#";
     public static final String POSITIONAL_ARGUMENTS_NAME = "Positional Argument";
 
+    // Map from (full class) name of each GATKCommandLinePluginDescriptor requested and
+    // found to the actual descriptor instance
+    Map<String, GATKCommandLinePluginDescriptor<?>> pluginDescriptors = new HashMap<>();
+
+    // Return the plugin instance corresponding to the targetDescriptor class
+    public GATKCommandLinePluginDescriptor<?> getPluginDescriptor(Class<?> targetDescriptor) {
+        return pluginDescriptors.get(targetDescriptor.getName());
+    }
 
     private final Set<String> argumentsFilesLoadedAlready = new LinkedHashSet<>();
 
@@ -113,7 +123,7 @@ public final class CommandLineParser {
     private Object positionalArgumentsParent;
 
     // List of all the data members with @Argument annotation
-    private final List<ArgumentDefinition> argumentDefinitions = new ArrayList<>();
+    List<ArgumentDefinition> argumentDefinitions = new ArrayList<>();
 
     // Maps long name, and short name, if present, to an argument definition that is
     // also in the argumentDefinitions list.
@@ -138,16 +148,26 @@ public final class CommandLineParser {
         return usagePreamble;
     }
 
-
     public CommandLineParser(final Object callerArguments) {
+        this(callerArguments, null);
+    }
+
+    public CommandLineParser(
+            final Object callerArguments,
+            final List<Class<? extends GATKCommandLinePluginDescriptor<?>>> pluginDescriptors) {
         this.callerArguments = callerArguments;
 
-        createArgumentDefinitions(callerArguments);
+        createArgumentDefinitions(callerArguments, null);
+        if (pluginDescriptors != null) {
+            createCommandLinePluginArgumentDefinitions(pluginDescriptors);
+        }
 
         this.programProperties = this.callerArguments.getClass().getAnnotation(CommandLineProgramProperties.class);
     }
 
-    private List<ArgumentDefinition> createArgumentDefinitions(final Object callerArguments) {
+    private void createArgumentDefinitions(
+            final Object callerArguments,
+            final GATKCommandLinePluginDescriptor<?> controllingDescriptor) {
         for (final Field field : getAllFields(callerArguments.getClass())) {
             if (field.getAnnotation(Argument.class) != null && field.getAnnotation(ArgumentCollection.class) != null){
                 throw new GATKException.CommandLineParserInternalException("An Argument cannot be an argument collection: "
@@ -157,20 +177,71 @@ public final class CommandLineParser {
                 handlePositionalArgumentAnnotation(field, callerArguments);
             }
             if (field.getAnnotation(Argument.class) != null) {
-                handleArgumentAnnotation(field, callerArguments);
+                handleArgumentAnnotation(field, callerArguments, controllingDescriptor);
             }
             if (field.getAnnotation(ArgumentCollection.class) != null) {
                 try {
                     field.setAccessible(true);
-                    createArgumentDefinitions(field.get(callerArguments));
+                    createArgumentDefinitions(field.get(callerArguments), controllingDescriptor);
                 } catch (final IllegalAccessException e) {
                     throw new GATKException.ShouldNeverReachHereException("should never reach here because we setAccessible(true)", e);
                 }
             }
         }
-        return null;
     }
 
+    // Find all the instances of GATKCommandLinePluginDescriptor by searching for all classes in the GATKPlugin package
+    private void createCommandLinePluginArgumentDefinitions(
+            final List<Class<? extends GATKCommandLinePluginDescriptor<?>>> requestedPluginDescriptors) {
+        final ClassFinder classFinder = new ClassFinder();
+        classFinder.find(
+                GATKCommandLinePluginDescriptor.class.getPackage().getName(),
+                GATKCommandLinePluginDescriptor.class);
+        final Set<Class<?>> pluginClasses = classFinder.getClasses();
+
+        // For each Descriptor class, create a single instance and it add as an argument definition,
+        // and then find all classes that derive from the plugin's specified class, and add an
+        // instance of each one of those as an ArgumentDefinition
+        pluginClasses.forEach(
+            pluginClass -> {
+                if (requestedPluginDescriptors.contains(pluginClass)) {
+                    try {
+                        final GATKCommandLinePluginDescriptor<?> pluginDescriptor =
+                                (GATKCommandLinePluginDescriptor<?>) pluginClass.newInstance();
+                        pluginDescriptors.put(pluginClass.getName(), pluginDescriptor);
+                        createArgumentDefinitions(pluginDescriptor, null);
+                        findPluginsForDescriptor(pluginDescriptor);
+                    }
+                    catch (IllegalAccessException | InstantiationException e) {
+                        throw new IllegalArgumentException(
+                                "Cant instantiate plugin class " + pluginClass.getName() + ": " + e);
+                    }
+                }
+            }
+        );
+    }
+
+    // Find all of the classes that derive from the class specified by the plugin Descriptor, instantiate
+    // one of each, and add its arguments fields as argument definitions
+    private void findPluginsForDescriptor(final GATKCommandLinePluginDescriptor<?> pluginDescriptor) {
+        final ClassFinder classFinder = new ClassFinder();
+        classFinder.find(pluginDescriptor.getPackageName(), pluginDescriptor.getPluginClass());
+        final Set<Class<?>> pluginClasses = classFinder.getClasses();
+
+        final List<Object> plugins = new ArrayList<>(pluginClasses.size());
+        for (Class<?> c : pluginClasses) {
+            if (pluginDescriptor.getClassFilter().test(c)) {
+                try {
+                    final Object plugin = pluginDescriptor.addInstance(c);
+                    plugins.add(plugin);
+                    createArgumentDefinitions(plugin, pluginDescriptor);
+                } catch (InstantiationException | IllegalAccessException e) {
+                    throw new GATKException("Problem making an instance of plugin " + c +
+                            " Do check that the class has a non-arg constructor", e);
+                }
+            }
+        }
+    }
 
     private static List<Field> getAllFields(Class<?> clazz) {
         final List<Field> ret = new ArrayList<>();
@@ -302,13 +373,56 @@ public final class CommandLineParser {
 
     }
 
+    // Once command line args have been processed, go through the argument definitions and
+    // validate any that are plugin class arguments against the controlling descriptor.
+    // Make a new copy of the argument definition list, removing any plugin-derived
+    // argumentDefinitions for arguments that we haven't actually seen (so validation
+    // doesn't complain about missing required arguments for plugins that weren't specified)
+    private void validatePluginArguments() {
+        final List<ArgumentDefinition> actualArgumentDefinitions = new ArrayList<>();
+        for (final ArgumentDefinition argumentDefinition : argumentDefinitions) {
+            if (null == argumentDefinition.controllingDescriptor) {
+                actualArgumentDefinitions.add(argumentDefinition);
+            }
+            else {
+                final boolean isAllowed = argumentDefinition.controllingDescriptor.isDependentArgumentAllowed(
+                                        argumentDefinition.parent.getClass());
+                if (argumentDefinition.hasBeenSet) {
+                    if (!isAllowed) {
+                        // dangling dependent argument; a value was specified but it's containing
+                        // (predecessor) plugin argument wasn't specified
+                        throw new UserException.CommandLineException(
+                            String.format(
+                                    "Argument \"%s/%s\" is only valid when the argument \"%s\" is specified",
+                                        argumentDefinition.shortName,
+                                        argumentDefinition.getLongName(),
+                                        argumentDefinition.parent.getClass().getSimpleName()));
+                    }
+                    actualArgumentDefinitions.add(argumentDefinition);
+                }
+                else if (isAllowed) {
+                    // the predecessor argument was seen, so this value is allowed but hasn't been set; keep the
+                    // argument definition to allow validation to check for missing required args
+                    actualArgumentDefinitions.add(argumentDefinition);
+                }
+            }
+        }
+
+        // update the list of argument definitions with the new list
+        argumentDefinitions = actualArgumentDefinitions;
+
+        // finally, give each plugin a chance to trim down any unseen instances from it's own list
+        pluginDescriptors.entrySet().forEach(e -> e.getValue().validateArguments());
+    }
+
     /**
      * After command line has been parsed, make sure that all required arguments have values, and that
      * lists with minimum # of elements have sufficient.
      *
      * @throws UserException.CommandLineException if arguments requirements are not satisfied.
      */
-    private void assertArgumentsAreValid() {
+    private void assertArgumentsAreValid()  {
+        validatePluginArguments();
         try {
             for (final ArgumentDefinition argumentDefinition : argumentDefinitions) {
                 final String fullName = argumentDefinition.getLongName();
@@ -348,7 +462,6 @@ public final class CommandLineParser {
         } catch (final IllegalAccessException e) {
             throw new GATKException.ShouldNeverReachHereException("Should never happen",e);
         }
-
 
     }
 
@@ -603,7 +716,8 @@ public final class CommandLineParser {
         stream.print(sb);
     }
 
-    private void handleArgumentAnnotation(final Field field, final Object parent) {
+    private void handleArgumentAnnotation(
+            final Field field, final Object parent, final GATKCommandLinePluginDescriptor<?> controllingDescriptor) {
         try {
             field.setAccessible(true);
             final Argument argumentAnnotation = field.getAnnotation(Argument.class);
@@ -619,7 +733,7 @@ public final class CommandLineParser {
                         "\" must have a String constructor or be an enum");
             }
 
-            final ArgumentDefinition argumentDefinition = new ArgumentDefinition(field, argumentAnnotation, parent);
+            final ArgumentDefinition argumentDefinition = new ArgumentDefinition(field, argumentAnnotation, parent, controllingDescriptor);
 
             for (final String argument : argumentAnnotation.mutex()) {
                 final ArgumentDefinition mutextArgumentDef = argumentMap.get(argument);
@@ -809,8 +923,13 @@ public final class CommandLineParser {
         final Object parent;
         final boolean isSpecial;
         final boolean isSensitive;
+        final GATKCommandLinePluginDescriptor<?> controllingDescriptor;
 
-        public ArgumentDefinition(final Field field, final Argument annotation, final Object parent){
+        public ArgumentDefinition(
+                final Field field,
+                final Argument annotation,
+                final Object parent,
+                final GATKCommandLinePluginDescriptor<?> controllingDescriptor) {
             this.field = field;
             this.fieldName = field.getName();
             this.parent = parent;
@@ -824,6 +943,7 @@ public final class CommandLineParser {
             this.isSensitive = annotation.sensitive();
 
             this.mutuallyExclusive = new LinkedHashSet<>(Arrays.asList(annotation.mutex()));
+            this.controllingDescriptor = controllingDescriptor;
 
             Object tmpDefault = getFieldValue();
             if (tmpDefault != null) {

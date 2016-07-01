@@ -18,7 +18,7 @@ import java.util.stream.IntStream;
  * level.
  *
  */
-public class CountingReadFilter implements ReadFilter {
+public class CountingReadFilter extends ReadFilter {
 
     private static final long serialVersionUID = 1L;
 
@@ -96,7 +96,7 @@ public class CountingReadFilter implements ReadFilter {
      */
     @Override
     public CountingReadFilter negate() {
-        return new CountingReadFilter("(Not '" + getName() + "')",(t) -> !test(t));
+        return new CountingNegateReadFilter(this);
     }
 
     @Override
@@ -106,6 +106,25 @@ public class CountingReadFilter implements ReadFilter {
             filteredCount++;
         }
         return accept;
+    }
+
+    private class CountingNegateReadFilter extends CountingReadFilter {
+        private static final long serialVersionUID = 1L;
+
+        CountingReadFilter delegateCountingFilter;
+        public CountingNegateReadFilter(CountingReadFilter delegate){
+            super("Not " + delegate.getName());
+            this.delegateCountingFilter = delegate;
+        }
+
+        @Override
+        public boolean test( GATKRead read ) {
+            final boolean accept = !delegateCountingFilter.test(read);
+            if (!accept) {
+                filteredCount++;
+            }
+            return accept;
+        }
     }
 
     /**

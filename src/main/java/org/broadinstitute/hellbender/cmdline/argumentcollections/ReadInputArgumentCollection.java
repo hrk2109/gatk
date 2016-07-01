@@ -26,6 +26,9 @@ public abstract class ReadInputArgumentCollection implements ArgumentCollectionD
             optional=true)
     public ValidationStringency readValidationStringency = ReadConstants.DEFAULT_READ_VALIDATION_STRINGENCY;
 
+    @Argument(fullName = "disableAllReadFilters", shortName = "f", doc = "Disable all read filters", common = false, optional = true)
+    public boolean disableAllReadFilters = false;
+
     /**
      * Get the list of BAM/SAM/CRAM files specified at the command line
      */

@@ -1,5 +1,8 @@
 package org.broadinstitute.hellbender.engine.spark;
 
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKCommandLinePluginDescriptor;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKReadFilterPluginDescriptor;
+import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.utils.SerializableFunction;
 import com.google.cloud.genomics.dataflow.utils.GCSOptions;
 import htsjdk.samtools.SAMFileHeader;
@@ -25,6 +28,8 @@ import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.ReadsWriteFormat;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -88,6 +93,14 @@ public abstract class GATKSparkTool extends SparkCommandLineProgram {
     private ReferenceMultiSource referenceSource;
     private SAMSequenceDictionary referenceDictionary;
     private List<SimpleInterval> intervals;
+
+    /**
+     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Use the read filter plugin.
+     */
+    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() {
+        return Collections.singletonList(GATKReadFilterPluginDescriptor.class);
+    }
 
     /**
      * Does this tool require reference data? Tools that do should override to return true.
@@ -276,13 +289,44 @@ public abstract class GATKSparkTool extends SparkCommandLineProgram {
 
     /**
      * Returns the read filter (simple or composite) that will be applied to the reads returned from {@link #getReads}
-     * The default implementation uses the {@link org.broadinstitute.hellbender.engine.filters.WellformedReadFilter} filter with all default options.
+     * The default implementation combines the default read filters for this tool (returned by
+     * {@link org.broadinstitute.hellbender.engine.spark.GATKSparkTool#getDefaultReadFilters} with any read filter command
+     * line arguments specified by the user and returns a single composite filter resulting from the list by and'ing
+     * them together.
      *
-     * Subclasses can extend to provide their own filters (ie., override and optionally call super).
-     * Multiple filters can be composed by using {@link org.broadinstitute.hellbender.engine.filters.ReadFilter} composition methods.
+     * Keeping state in filter objects is strongly discouraged.
+     *
+     * Multiple filters can be composed by using {@link org.broadinstitute.hellbender.engine.filters.ReadFilter}
+     * composition methods.
      */
     public ReadFilter makeReadFilter() {
-        return new WellformedReadFilter(getHeaderForReads());
+        // Unless all filters are disabled, merge the tool's default filters with the users's command line
+        // read filter requests, then initialize the resulting filters.
+        GATKReadFilterPluginDescriptor readFilterPlugin =
+                (GATKReadFilterPluginDescriptor)
+                        commandLineParser.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
+
+        return readArguments.disableAllReadFilters == true ?
+                ReadFilterLibrary.ALLOW_ALL_READS :
+                readFilterPlugin.getMergedReadFilters(
+                        getDefaultReadFilters(),
+                        getHeaderForReads(),
+                        f -> f, // no wrapping function; use the plain read filters
+                        (f1 , f2) -> f1.and(f2),
+                        ReadFilterLibrary.ALLOW_ALL_READS
+                );
+    }
+
+    /**
+     * Returns the default list of ReadFilters that are used for this tool. The filters returned
+     * by this method are subject to selective enabling/disabling by the user via the command line. The
+     * default implementation uses the {@link WellformedReadFilter} filter with all default options. Subclasses
+     * can override to provide an alternative default filter list.
+     *
+     * @return List of individual filters to be applied for this tool.
+     */
+    public List<ReadFilter> getDefaultReadFilters() {
+        return Arrays.asList(new WellformedReadFilter(getHeaderForReads()));
     }
 
     /**
