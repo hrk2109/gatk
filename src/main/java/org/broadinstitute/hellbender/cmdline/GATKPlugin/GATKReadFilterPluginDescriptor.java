@@ -26,7 +26,8 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
             doc="Read filters to be applied before analysis", optional=true)
     public final List<String> readFilterNames = new ArrayList<>(); // preserve order
 
-    @Argument(fullName = "disableReadFilter",
+    final String disableReadFilterArgName = "disableReadFilter";
+    @Argument(fullName = disableReadFilterArgName,
             shortName = "df",
             doc="Read filters to be disabled before analysis", optional=true)
     public final Set<String> disableFilters = new HashSet<>();
@@ -71,14 +72,16 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
         return readFilterNames.contains(targetPluginClass.getSimpleName());
     }
 
-    //Pass back the list of ReadFilter instances that were actually seen
-    // on the command line in the same order they were specified
+    /**
+     * Pass back the list of ReadFilter instances that were actually seen on the
+     * command line in the same order they were specified
+     */
     @Override
     public void getInstances(final Consumer<Collection<ReadFilter>> consumer) {
         // add the instances in the order they were specified on the command line
         final ArrayList<ReadFilter> filters = new ArrayList<>(readFilters.size());
         readFilterNames.forEach(s -> filters.add(getReadFilterForName(s)));
-        consumer.accept(readFilters.values());
+        consumer.accept(filters);
     }
 
     // Find the instance of the given read filter in the instance list.
@@ -91,6 +94,16 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
             }
         }
         return rf;
+    }
+
+    // Return the allowable values for readFilterNames/disableReadFilter
+    @Override
+    public Set<String> getAllowedStringValues(final String longArgName) {
+        if (longArgName.equals(StandardArgumentDefinitions.READ_FILTER_LONG_NAME) ||
+                longArgName.equals(disableReadFilterArgName)) {
+            return readFilters.keySet();
+        }
+        throw new IllegalArgumentException("Allowed values request for unrecognized string argument: " + longArgName);
     }
 
     /**
@@ -174,8 +187,9 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
                 .filter(f -> !isDisabledFilter(f.getClass().getSimpleName()))
                 .collect(Collectors.toList());
 
-        // now add in any additional filters enabled on the command line
-        getInstances(list -> userSpecifiedReadFilters.addAll(list));
+        // now add in any additional filters enabled on the command line in the order in which
+        // they were specified
+        getInstances(orderedList -> orderedList.forEach(f -> userSpecifiedReadFilters.add(f)));
 
         // give each remaining filter a header, then map/wrap and reduce using the merge function
         userSpecifiedReadFilters.forEach(f -> f.setHeader(samHeader));

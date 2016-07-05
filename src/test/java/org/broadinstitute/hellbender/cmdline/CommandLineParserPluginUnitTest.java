@@ -7,6 +7,7 @@ import org.broadinstitute.hellbender.cmdline.CommandLineParser;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
 import org.broadinstitute.hellbender.cmdline.programgroups.QCProgramGroup;
 import org.broadinstitute.hellbender.exceptions.UserException;
+import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -27,11 +28,16 @@ public class CommandLineParserPluginUnitTest {
     }
 
     public static class TestPlugin extends TestPluginBase {
+        final static String argumentName = "argumentForTestPlugin";
+        @Argument(fullName = argumentName, optional=true)
+        Integer argumentForTestPlugin;
     }
 
     public static class TestPluginDescriptor extends GATKCommandLinePluginDescriptor<TestPluginBase> {
 
-        @Argument(fullName="pluginName", optional = true)
+        final String pluginNamesArgName = "pluginName";
+
+        @Argument(fullName=pluginNamesArgName, optional = true)
         Set<String> pluginNames = new HashSet<>();
 
         // Map of plugin names to the corresponding instance
@@ -65,6 +71,14 @@ public class CommandLineParserPluginUnitTest {
             return plugin;
         }
 
+        @Override
+        public Set<String> getAllowedStringValues(String longArgName) {
+            if (longArgName.equals(pluginNamesArgName) ){
+                return pluginInstances.keySet();
+            }
+            throw new IllegalArgumentException("Allowed values request for unrecognized string argument: " + longArgName);
+
+        }
         @Override
         public boolean isDependentArgumentAllowed(Class<?> targetPluginClass) {
             return true;
@@ -129,6 +143,28 @@ public class CommandLineParserPluginUnitTest {
         pid.getInstances(list -> pluginBases.addAll(list));
 
         Assert.assertEquals(pluginBases.size(), expectedInstanceCount);
+    }
+
+    @Test
+    public void testPluginUsage() {
+        PlugInTest plugInTest = new PlugInTest();
+        final CommandLineParser clp = new CommandLineParser(
+                plugInTest,
+                Collections.singletonList(TestPluginDescriptor.class));
+        final String out = BaseTest.captureStderr(() -> clp.usage(System.err, true)); // with common args
+
+        TestPluginDescriptor pid =
+                (TestPluginDescriptor) clp.getPluginDescriptor(CommandLineParserPluginUnitTest.TestPluginDescriptor.class);
+        Assert.assertNotNull(pid);
+
+        List<TestPluginBase> pluginBases = new ArrayList<>();
+        pid.getInstances(list -> pluginBases.addAll(list));
+
+        // Make sure TestPlugin.argumentName is listed as conditional
+        final int condIndex = out.indexOf("Conditional Arguments:");
+        Assert.assertTrue(condIndex > 0);
+        final int argIndex = out.indexOf(TestPlugin.argumentName);
+        Assert.assertTrue(argIndex > condIndex);
     }
 
 }

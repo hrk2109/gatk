@@ -142,7 +142,7 @@ public class ReadFilterPluginUnitTest {
                 (GATKReadFilterPluginDescriptor)
                         clp.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
         List<ReadFilter> readFilters = new ArrayList<>();
-        readFilterPlugin.getInstances(list -> readFilters.addAll(readFilters));
+        readFilterPlugin.getInstances(orderedList -> orderedList.forEach(f -> readFilters.add(f)));
         Assert.assertEquals(readFilters.size(), 0);
     }
 
@@ -195,7 +195,7 @@ public class ReadFilterPluginUnitTest {
                 (GATKReadFilterPluginDescriptor)
                         clp.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
         List<ReadFilter> readFilters = new ArrayList<>();
-        readFilterPlugin.getInstances(list -> readFilters.addAll(list));
+        readFilterPlugin.getInstances(orderedList -> orderedList.forEach(f -> readFilters.add(f)));
 
         Assert.assertEquals(readFilters.size(), 2);
         Assert.assertEquals(readFilters.get(0).getClass().getSimpleName(),
@@ -226,7 +226,7 @@ public class ReadFilterPluginUnitTest {
                 (GATKReadFilterPluginDescriptor)
                         clp.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
         List<ReadFilter> readFilters = new ArrayList<>();
-        readFilterPlugin.getInstances(list -> readFilters.addAll(list));
+        readFilterPlugin.getInstances(orderedList -> orderedList.forEach(f -> readFilters.add(f)));
 
         Assert.assertEquals(readFilters.size(), 1);
         Assert.assertEquals(readFilters.get(0).getClass().getSimpleName(),
@@ -263,6 +263,35 @@ public class ReadFilterPluginUnitTest {
         read.setName("fred");
         read.setBases(new byte[15]);
         Assert.assertTrue(rf.test(read));
+    }
+
+    @Test
+    public void testPreserveSpecifiedOrder() {
+        TestArgCollection testArgs = new TestArgCollection();
+        CommandLineParser clp = new CommandLineParser(testArgs,
+              Collections.singletonList(GATKReadFilterPluginDescriptor.class));
+        clp.parseArguments(System.out, new String[] {
+                "-I", "fakeInput",
+                "-readFilter", ReadFilterLibrary.MAPPED.getClass().getSimpleName(),
+                "-readFilter", ReadFilterLibrary.HAS_MATCHING_BASES_AND_QUALS.getClass().getSimpleName(),
+                "-readFilter", ReadFilterLibrary.GOOD_CIGAR.getClass().getSimpleName()});
+
+        GATKReadFilterPluginDescriptor readFilterPlugin =
+                (GATKReadFilterPluginDescriptor)
+                        clp.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
+
+        // now add in any additional filters enabled on the command line
+        List<ReadFilter> orderedFilters = new ArrayList<>();
+        readFilterPlugin.getInstances(orderedList -> orderedList.forEach(f -> orderedFilters.add(f)));
+
+        // defaults first, then command line, in order
+        Assert.assertEquals(orderedFilters.size(), 3);
+        Assert.assertEquals(orderedFilters.get(0).getClass().getSimpleName(),
+                ReadFilterLibrary.MAPPED.getClass().getSimpleName());
+        Assert.assertEquals(orderedFilters.get(1).getClass().getSimpleName(),
+                ReadFilterLibrary.HAS_MATCHING_BASES_AND_QUALS.getClass().getSimpleName());
+        Assert.assertEquals(orderedFilters.get(2).getClass().getSimpleName(),
+                ReadFilterLibrary.GOOD_CIGAR.getClass().getSimpleName());
     }
 
     @Test

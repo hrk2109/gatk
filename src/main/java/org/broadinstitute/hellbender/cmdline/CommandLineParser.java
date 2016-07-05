@@ -266,21 +266,41 @@ public final class CommandLineParser {
         stream.print(getStandardUsagePreamble(callerArguments.getClass()) + getUsagePreamble());
         stream.println("\n" + getVersion());
 
-        // filter on common and partition on optional
-        final Map<Boolean, List<ArgumentDefinition>> argMap = argumentDefinitions.stream()
+        // filter on common and partition on plugin-controlled
+        final Map<Boolean, List<ArgumentDefinition>> allArgsMap = argumentDefinitions.stream()
                 .filter(argumentDefinition -> printCommon || !argumentDefinition.isCommon)
-                .collect(Collectors.partitioningBy(a -> a.optional));
+                .collect(Collectors.partitioningBy(a -> a.controllingDescriptor == null));
 
-        final List<ArgumentDefinition> reqArgs = argMap.get(false); // required args
-        if (reqArgs != null && !reqArgs.isEmpty()) {
-            stream.println("\n\nRequired Arguments:\n");
-            reqArgs.stream().forEach(argumentDefinition -> printArgumentUsage(stream, argumentDefinition));
+        List<ArgumentDefinition> nonPluginArgs = allArgsMap.get(true);
+        if (null != nonPluginArgs && !nonPluginArgs.isEmpty()) {
+            // partition the non-plugin args on optional
+            final Map<Boolean, List<ArgumentDefinition>> unconditionalArgsMap = nonPluginArgs.stream()
+                    .collect(Collectors.partitioningBy(a -> a.optional));
+
+            final List<ArgumentDefinition> reqArgs = unconditionalArgsMap.get(false); // required args
+            if (reqArgs != null && !reqArgs.isEmpty()) {
+                stream.println("\n\nRequired Arguments:\n");
+                reqArgs.stream().forEach(argumentDefinition -> printArgumentUsage(stream, argumentDefinition));
+            }
+
+            final List<ArgumentDefinition> optArgs = unconditionalArgsMap.get(true); // optional args
+            if (optArgs != null && !optArgs.isEmpty()) {
+                stream.println("\nOptional Arguments:\n");
+                optArgs.stream().forEach(argumentDefinition -> printArgumentUsage(stream, argumentDefinition));
+            }
         }
 
-        final List<ArgumentDefinition> optArgs = argMap.get(true); // optional args
-        if (optArgs != null && !optArgs.isEmpty()) {
-            stream.println("\nOptional Arguments:\n");
-            optArgs.stream().forEach(argumentDefinition -> printArgumentUsage(stream, argumentDefinition));
+        // now the contingent/dependent args (those controlled by a plugin descriptor)
+        List<ArgumentDefinition> conditionalArgs = allArgsMap.get(false);
+        if (null != conditionalArgs && !conditionalArgs.isEmpty()) {
+            // group the argdefs by their parent (plugin) class
+            Map<String, List<ArgumentDefinition>> groupedArgsMap = conditionalArgs.stream()
+                    .collect(Collectors.groupingBy(argDef -> argDef.parent.getClass().getSimpleName()));
+            stream.println("\nConditional Arguments:\n");
+            for (Map.Entry<String, List<ArgumentDefinition>> entry : groupedArgsMap.entrySet()) {
+                stream.println("Only valid when " + entry.getKey() + " is specified:");
+                entry.getValue().forEach(argDef -> printArgumentUsage(stream, argDef));
+            }
         }
     }
 
@@ -606,7 +626,13 @@ public final class CommandLineParser {
         } else {
             sb.append("Required. ");
         }
-        sb.append(getOptions(getUnderlyingType(argumentDefinition.field)));
+        if (GATKCommandLinePluginDescriptor.class.isAssignableFrom(argumentDefinition.parent.getClass()) &&
+                getUnderlyingType(argumentDefinition.field).equals(String.class)) {
+            usageForPluginDescriptorArgument(argumentDefinition, sb);
+        }
+        else {
+            sb.append(getOptions(getUnderlyingType(argumentDefinition.field)));
+        }
         if (!argumentDefinition.mutuallyExclusive.isEmpty()) {
             sb.append(" Cannot be used in conjuction with argument(s)");
             for (final String argument : argumentDefinition.mutuallyExclusive) {
@@ -616,7 +642,6 @@ public final class CommandLineParser {
                     throw new GATKException("Invalid argument definition in source code.  " + argument +
                                                   " doesn't match any known argument.");
                 }
-
                 sb.append(" ").append(mutextArgumentDefinition.fieldName);
                 if (!mutextArgumentDefinition.shortName.isEmpty()) {
                     sb.append(" (").append(mutextArgumentDefinition.shortName).append(")");
@@ -626,10 +651,22 @@ public final class CommandLineParser {
         return sb.toString();
     }
 
+    private void usageForPluginDescriptorArgument(final ArgumentDefinition argDef, final StringBuilder sb) {
+        final GATKCommandLinePluginDescriptor<?> descriptor = (GATKCommandLinePluginDescriptor<?>) argDef.parent;
+        // this argument came from a plugin descriptor; delegate to get the list of allowed values
+        final Set<String> allowedValues = descriptor.getAllowedStringValues(argDef.getLongName());
+        if (allowedValues == null) {
+            sb.append("Any value allowed");
+        } else {
+            sb.append("Allowed values are: ");
+            allowedValues.forEach(s -> sb.append(s).append(" "));
+        }
+    }
+
     /**
-     * Generates the option help string for a {@code boolean} or {@link Boolean} typed argument.
-     * @return never {@code null}.
-     */
+      * Generates the option help string for a {@code boolean} or {@link Boolean} typed argument.
+      * @return never {@code null}.
+      */
     private String getBooleanOptions() {
         return String.format("%s%s, %s%s", ENUM_OPTION_DOC_PREFIX, Boolean.TRUE, Boolean.FALSE, ENUM_OPTION_DOC_SUFFIX);
     }

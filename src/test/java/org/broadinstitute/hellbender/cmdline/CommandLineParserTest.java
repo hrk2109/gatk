@@ -136,6 +136,7 @@ public final class CommandLineParserTest {
         final int reqIndex = out.indexOf("Required Arguments:");
         Assert.assertTrue(reqIndex < 0);
         Assert.assertTrue(out.indexOf("Optional Arguments:", reqIndex) > 0);
+        Assert.assertEquals(out.indexOf("Conditional Arguments:", reqIndex), -1);
     }
 
     /**
@@ -148,6 +149,7 @@ public final class CommandLineParserTest {
         final int reqIndex = out.indexOf("Required Arguments:");
         Assert.assertTrue(reqIndex > 0);
         Assert.assertTrue(out.indexOf("Optional Arguments:", reqIndex) > 0);
+        Assert.assertEquals(out.indexOf("Conditional Arguments:", reqIndex), -1);
     }
 
     @Test

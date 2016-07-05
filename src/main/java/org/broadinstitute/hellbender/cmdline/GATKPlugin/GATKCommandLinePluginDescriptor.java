@@ -3,6 +3,7 @@ package org.broadinstitute.hellbender.cmdline.GATKPlugin;
 import org.broadinstitute.hellbender.exceptions.UserException;
 
 import java.util.Collection;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -88,6 +89,17 @@ public abstract class GATKCommandLinePluginDescriptor<T> {
      */
     public abstract Object addInstance(Class<?> pluggableClass)
             throws IllegalAccessException, InstantiationException;
+
+    /**
+     * Return the allowable values for the String argument specified by
+     * longArgName. Called by the command line parser to generate a usage
+     * string. If the value is unrecognized, the implementation should
+     * throw IllegalArgumentException.
+     *
+     * @param longArgName
+     * @return Set<String> of allowable values</String>, or null if any value is allowed
+     */
+    public abstract Set<String> getAllowedStringValues(String longArgName);
 
     /**
      * Called by the command line parser when an argument value from the class
