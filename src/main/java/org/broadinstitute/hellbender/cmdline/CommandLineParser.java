@@ -75,7 +75,7 @@ public final class CommandLineParser {
 
     // Map from (full class) name of each GATKCommandLinePluginDescriptor requested and
     // found to the actual descriptor instance
-    Map<String, GATKCommandLinePluginDescriptor<?>> pluginDescriptors = new HashMap<>();
+    private Map<String, GATKCommandLinePluginDescriptor<?>> pluginDescriptors = new HashMap<>();
 
     // Return the plugin instance corresponding to the targetDescriptor class
     public GATKCommandLinePluginDescriptor<?> getPluginDescriptor(Class<?> targetDescriptor) {
@@ -123,7 +123,7 @@ public final class CommandLineParser {
     private Object positionalArgumentsParent;
 
     // List of all the data members with @Argument annotation
-    List<ArgumentDefinition> argumentDefinitions = new ArrayList<>();
+    private List<ArgumentDefinition> argumentDefinitions = new ArrayList<>();
 
     // Maps long name, and short name, if present, to an argument definition that is
     // also in the argumentDefinitions list.
@@ -148,13 +148,25 @@ public final class CommandLineParser {
         return usagePreamble;
     }
 
+    /**
+     * @param callerArguments The object containing the command line arguments to be populated by
+     *                        this command line parser.
+     */
     public CommandLineParser(final Object callerArguments) {
         this(callerArguments, null);
     }
 
+    /**
+     * @param callerArguments The object containing the command line arguments to be populated by
+     *                        this command line parser.
+     * @param pluginDescriptors A list of {@link GATKCommandLinePluginDescriptor} objects that
+     *                          should be used by this command line parser to extend the list of
+     *                          command line arguments with dynamically discovered plugins. If
+     *                          null, no descriptors are loaded.
+     */
     public CommandLineParser(
             final Object callerArguments,
-            final List<Class<? extends GATKCommandLinePluginDescriptor<?>>> pluginDescriptors) {
+            final List<? extends GATKCommandLinePluginDescriptor<?>> pluginDescriptors) {
         this.callerArguments = callerArguments;
 
         createArgumentDefinitions(callerArguments, null);
@@ -190,49 +202,34 @@ public final class CommandLineParser {
         }
     }
 
-    // Find all the instances of GATKCommandLinePluginDescriptor by searching for all classes in the GATKPlugin package
+    // Find all the instances of plugins specified by the provided plugin descriptors
     private void createCommandLinePluginArgumentDefinitions(
-            final List<Class<? extends GATKCommandLinePluginDescriptor<?>>> requestedPluginDescriptors) {
-        final ClassFinder classFinder = new ClassFinder();
-        classFinder.find(
-                GATKCommandLinePluginDescriptor.class.getPackage().getName(),
-                GATKCommandLinePluginDescriptor.class);
-        final Set<Class<?>> pluginClasses = classFinder.getClasses();
-
-        // For each Descriptor class, create a single instance and it add as an argument definition,
-        // and then find all classes that derive from the plugin's specified class, and add an
-        // instance of each one of those as an ArgumentDefinition
-        pluginClasses.forEach(
-            pluginClass -> {
-                if (requestedPluginDescriptors.contains(pluginClass)) {
-                    try {
-                        final GATKCommandLinePluginDescriptor<?> pluginDescriptor =
-                                (GATKCommandLinePluginDescriptor<?>) pluginClass.newInstance();
-                        pluginDescriptors.put(pluginClass.getName(), pluginDescriptor);
-                        createArgumentDefinitions(pluginDescriptor, null);
-                        findPluginsForDescriptor(pluginDescriptor);
-                    }
-                    catch (IllegalAccessException | InstantiationException e) {
-                        throw new IllegalArgumentException(
-                                "Cant instantiate plugin class " + pluginClass.getName() + ": " + e);
-                    }
-                }
+            final List<? extends GATKCommandLinePluginDescriptor<?>> requestedPluginDescriptors) {
+        // For each descriptor, create an argument definition for the descriptor itself, then
+        // process it's plugin classes
+        requestedPluginDescriptors.forEach(
+            descriptor -> {
+                pluginDescriptors.put(descriptor.getClass().getName(), descriptor);
+                createArgumentDefinitions(descriptor, null);
+                findPluginsForDescriptor(descriptor);
             }
         );
     }
 
-    // Find all of the classes that derive from the class specified by the plugin Descriptor, instantiate
-    // one of each, and add its arguments fields as argument definitions
-    private void findPluginsForDescriptor(final GATKCommandLinePluginDescriptor<?> pluginDescriptor) {
+    // Find all of the classes that derive from the class specified by the descriptor, obtain an
+    // instance each and add its ArgumentDefinitions
+    private void findPluginsForDescriptor(
+            final GATKCommandLinePluginDescriptor<?> pluginDescriptor) {
         final ClassFinder classFinder = new ClassFinder();
-        classFinder.find(pluginDescriptor.getPackageName(), pluginDescriptor.getPluginClass());
+        pluginDescriptor.getPackageNames().forEach(
+                pkg -> classFinder.find(pkg, pluginDescriptor.getPluginClass()));
         final Set<Class<?>> pluginClasses = classFinder.getClasses();
 
         final List<Object> plugins = new ArrayList<>(pluginClasses.size());
         for (Class<?> c : pluginClasses) {
             if (pluginDescriptor.getClassFilter().test(c)) {
                 try {
-                    final Object plugin = pluginDescriptor.addInstance(c);
+                    final Object plugin = pluginDescriptor.getInstance(c);
                     plugins.add(plugin);
                     createArgumentDefinitions(plugin, pluginDescriptor);
                 } catch (InstantiationException | IllegalAccessException e) {
@@ -393,56 +390,14 @@ public final class CommandLineParser {
 
     }
 
-    // Once command line args have been processed, go through the argument definitions and
-    // validate any that are plugin class arguments against the controlling descriptor.
-    // Make a new copy of the argument definition list, removing any plugin-derived
-    // argumentDefinitions for arguments that we haven't actually seen (so validation
-    // doesn't complain about missing required arguments for plugins that weren't specified)
-    private void validatePluginArguments() {
-        final List<ArgumentDefinition> actualArgumentDefinitions = new ArrayList<>();
-        for (final ArgumentDefinition argumentDefinition : argumentDefinitions) {
-            if (null == argumentDefinition.controllingDescriptor) {
-                actualArgumentDefinitions.add(argumentDefinition);
-            }
-            else {
-                final boolean isAllowed = argumentDefinition.controllingDescriptor.isDependentArgumentAllowed(
-                                        argumentDefinition.parent.getClass());
-                if (argumentDefinition.hasBeenSet) {
-                    if (!isAllowed) {
-                        // dangling dependent argument; a value was specified but it's containing
-                        // (predecessor) plugin argument wasn't specified
-                        throw new UserException.CommandLineException(
-                            String.format(
-                                    "Argument \"%s/%s\" is only valid when the argument \"%s\" is specified",
-                                        argumentDefinition.shortName,
-                                        argumentDefinition.getLongName(),
-                                        argumentDefinition.parent.getClass().getSimpleName()));
-                    }
-                    actualArgumentDefinitions.add(argumentDefinition);
-                }
-                else if (isAllowed) {
-                    // the predecessor argument was seen, so this value is allowed but hasn't been set; keep the
-                    // argument definition to allow validation to check for missing required args
-                    actualArgumentDefinitions.add(argumentDefinition);
-                }
-            }
-        }
-
-        // update the list of argument definitions with the new list
-        argumentDefinitions = actualArgumentDefinitions;
-
-        // finally, give each plugin a chance to trim down any unseen instances from it's own list
-        pluginDescriptors.entrySet().forEach(e -> e.getValue().validateArguments());
-    }
-
     /**
      * After command line has been parsed, make sure that all required arguments have values, and that
-     * lists with minimum # of elements have sufficient.
+     * lists with minimum # of elements have sufficient values.
      *
      * @throws UserException.CommandLineException if arguments requirements are not satisfied.
      */
     private void assertArgumentsAreValid()  {
-        validatePluginArguments();
+        validatePluginArguments(); // trim the list of plugin-derived argument definitions before validation
         try {
             for (final ArgumentDefinition argumentDefinition : argumentDefinitions) {
                 final String fullName = argumentDefinition.getLongName();
@@ -469,7 +424,6 @@ public final class CommandLineParser {
                             (argumentDefinition.mutuallyExclusive.isEmpty() ? "." : " unless any of " + argumentDefinition.mutuallyExclusive +
                                     " are specified."));
                 }
-
             }
             if (positionalArguments != null) {
                 @SuppressWarnings("rawtypes")
@@ -483,6 +437,50 @@ public final class CommandLineParser {
             throw new GATKException.ShouldNeverReachHereException("Should never happen",e);
         }
 
+    }
+
+    // Once all command line args have been processed, go through the argument definitions and
+    // validate any that are plugin class arguments against the controlling descriptor, trimming
+    // the list of argument definitions along the way by removing any that have not been set
+    // (so validation doesn't complain about missing required arguments for plugins that weren't
+    // specified) and throwing for any that have been set but are not allowed. Note that we don't trim
+    // the list of plugins themselves (just the argument definitions), since the plugin may contain
+    // other arguments that require validation.
+    private void validatePluginArguments() {
+        final List<ArgumentDefinition> actualArgumentDefinitions = new ArrayList<>();
+        for (final ArgumentDefinition argumentDefinition : argumentDefinitions) {
+            if (null == argumentDefinition.controllingDescriptor) {
+                actualArgumentDefinitions.add(argumentDefinition);
+            }
+            else {
+                final boolean isAllowed = argumentDefinition.controllingDescriptor.isDependentArgumentAllowed(
+                        argumentDefinition.parent.getClass());
+                if (argumentDefinition.hasBeenSet) {
+                    if (!isAllowed) {
+                        // dangling dependent argument; a value was specified but it's containing
+                        // (predecessor) plugin argument wasn't specified
+                        throw new UserException.CommandLineException(
+                                String.format(
+                                        "Argument \"%s/%s\" is only valid when the argument \"%s\" is specified",
+                                        argumentDefinition.shortName,
+                                        argumentDefinition.getLongName(),
+                                        argumentDefinition.parent.getClass().getSimpleName()));
+                    }
+                    actualArgumentDefinitions.add(argumentDefinition);
+                }
+                else if (isAllowed) {
+                    // the predecessor argument was seen, so this value is allowed but hasn't been set; keep the
+                    // argument definition to allow validation to check for missing required args
+                    actualArgumentDefinitions.add(argumentDefinition);
+                }
+            }
+        }
+
+        // update the list of argument definitions with the new list
+        argumentDefinitions = actualArgumentDefinitions;
+
+        // finally, give each plugin a chance to trim down any unseen instances from it's own list
+        pluginDescriptors.entrySet().forEach(e -> e.getValue().validateArguments());
     }
 
     @SuppressWarnings("unchecked")
@@ -654,7 +652,7 @@ public final class CommandLineParser {
     private void usageForPluginDescriptorArgument(final ArgumentDefinition argDef, final StringBuilder sb) {
         final GATKCommandLinePluginDescriptor<?> descriptor = (GATKCommandLinePluginDescriptor<?>) argDef.parent;
         // this argument came from a plugin descriptor; delegate to get the list of allowed values
-        final Set<String> allowedValues = descriptor.getAllowedStringValues(argDef.getLongName());
+        final Set<String> allowedValues = descriptor.getAllowedValuesForDescriptorArgument(argDef.getLongName());
         if (allowedValues == null) {
             sb.append("Any value allowed");
         } else {

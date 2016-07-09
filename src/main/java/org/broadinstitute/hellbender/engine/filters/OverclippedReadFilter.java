@@ -21,17 +21,17 @@ public final class OverclippedReadFilter extends ReadFilter{
 
     static final long serialVersionUID = 1L;
 
-    @Argument(fullName = "filter_is_too_short_value",
+    @Argument(fullName = "filterTooShort",
             shortName = "filterTooShort",
             doc = "Value for which reads with less than this number of aligned bases is considered too short",
-            optional = false)
-    public Integer minimumSequenceLength;
+            optional = true)
+    public int minimumSequenceLength = 30;
 
-    @Argument(fullName = "do_not_require_softclips_both_ends",
-            shortName = "NoRequireSCBothEnds",
+    @Argument(fullName = "dontRequireSoftClipsBothEnds",
+            shortName = "dontRequireSoftClipsBothEnds",
             doc = "Allow a read to be filtered out based on having only 1 soft-clipped block. By default, both ends must " +
                     "have a soft-clipped block, setting this flag requires only 1 soft-clipped block.",
-            optional = false)
+            optional = true)
     public Boolean doNotRequireSoftclipsOnBothEnds;
 
     // Command line parser requires a no-arg constructor

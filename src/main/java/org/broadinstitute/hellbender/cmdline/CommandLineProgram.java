@@ -220,10 +220,10 @@ public abstract class CommandLineProgram {
     }
 
     /**
-     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Return the list of GATKCommandLinePluginDescriptors to be used for this CLP.
      * Default implementation returns null. Subclasses can override this to return a custom list.
      */
-    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() { return null; }
+    protected List<? extends GATKCommandLinePluginDescriptor<?>> getPluginDescriptors() { return null; }
 
     /** Gets a MetricsFile with default headers already written into it. */
     protected <A extends MetricBase,B extends Comparable<?>> MetricsFile<A,B> getMetricsFile() {

@@ -12,10 +12,10 @@ public final class FragmentLengthReadFilter extends ReadFilter implements Serial
     private static final long serialVersionUID = 1l;
 
     @Argument(fullName = "maxFragmentLength",
-            shortName = "maxFragment",
+            shortName = "maxFragmentLength",
             doc = "Keep only read pairs with fragment length at most equal to the given value",
-            optional = false)
-    public Integer maxFragmentLength; // no default value, since the command line parser will think its set
+            optional = true)
+    public int maxFragmentLength = 1000000;
 
     @Override
     public boolean test( final GATKRead read ) {

@@ -17,7 +17,7 @@ public final class SampleReadFilter extends ReadFilter implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Argument(fullName = "sample",
-            shortName = "goodSM", doc="The name of the sample(s) to keep, filtering out all others", optional=false)
+            shortName = "sample", doc="The name of the sample(s) to keep, filtering out all others", optional=false)
     public Set<String> samplesToKeep = new HashSet<>();
 
     public SampleReadFilter( ) { }

@@ -10,9 +10,9 @@ public final class ReadStrandFilter extends ReadFilter {
     private static final long serialVersionUID = 1L;
 
     @Argument(fullName = "keepReverse",
-            shortName = "kr",
+            shortName = "keepReverse",
             doc="Keep only reads on the reverse strand",
-            optional=false)
+            optional=true)
 	public Boolean keepOnlyReverse;
 
     public ReadStrandFilter() {}

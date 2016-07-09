@@ -2,7 +2,9 @@ package org.broadinstitute.hellbender.engine;
 
 import org.broadinstitute.hellbender.cmdline.Advanced;
 import org.broadinstitute.hellbender.cmdline.Argument;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKReadFilterPluginDescriptor;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
+import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.filters.WellformedReadFilter;
 import org.broadinstitute.hellbender.exceptions.UserException;
@@ -10,6 +12,7 @@ import org.broadinstitute.hellbender.utils.IntervalUtils;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -64,9 +67,6 @@ public abstract class AssemblyRegionWalker extends GATKTool {
     @Advanced
     @Argument(fullName = "maxProbPropagationDistance", shortName = "maxProbPropagationDistance", doc="Upper limit on how many bases away probability mass can be moved around when calculating the boundaries between active and inactive assembly regions", optional = true)
     protected int maxProbPropagationDistance = defaultMaxProbPropagationDistance();
-
-    @Argument(fullName = "disable_all_read_filters", shortName = "f", doc = "Disable all read filters", common = false, optional = true)
-    public boolean disableAllReadFilters = false;
 
     /**
      * @return Default value for the {@link #readShardSize} parameter, if none is provided on the command line
@@ -174,8 +174,10 @@ public abstract class AssemblyRegionWalker extends GATKTool {
      * Multiple filters can be composed by using {@link org.broadinstitute.hellbender.engine.filters.ReadFilter} composition methods.
      */
     public CountingReadFilter makeReadFilter(){
-        return new CountingReadFilter("Wellformed", new WellformedReadFilter(getHeaderForReads()))
-                .and(new CountingReadFilter("Mapped", ReadFilterLibrary.MAPPED));
+        GATKReadFilterPluginDescriptor readFilterPlugin =
+                (GATKReadFilterPluginDescriptor)
+                        commandLineParser.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
+        return readFilterPlugin.getMergedCountingReadFilter(getHeaderForReads());
     }
 
     /**
@@ -185,11 +187,25 @@ public abstract class AssemblyRegionWalker extends GATKTool {
         return currentReadShard.getInterval();
     }
 
+    /**
+     * Returns the default list of CommandLineReadFilters that are used for this tool. The filters
+     * returned by this method are subject to selective enabling/disabling and customization by the
+     * user via the command line. The default implementation uses the {@link WellformedReadFilter}
+     * filter with all default options. Subclasses can override to provide alternative filters.
+     *
+     * Note: this method is called before command line parsing begins, and thus before a SAMFileHeader is
+     * available through {link #getHeaderForReads}.
+     *
+     * @return List of default filter instances to be applied for this tool.
+     */
+    public List<ReadFilter> getDefaultReadFilters() {
+        return Collections.singletonList(new WellformedReadFilter());
+    }
+
     @Override
     public final void traverse() {
-        CountingReadFilter countedFilter = disableAllReadFilters ?
-                new CountingReadFilter("Allow all", ReadFilterLibrary.ALLOW_ALL_READS ) :
-                makeReadFilter();
+
+        CountingReadFilter countedFilter = makeReadFilter();
 
         // Since we're processing regions rather than individual reads, tell the progress
         // meter to check the time more frequently (every 10 regions instead of every 1000 regions).

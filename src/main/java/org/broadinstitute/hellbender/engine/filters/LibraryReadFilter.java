@@ -12,6 +12,7 @@ import java.io.Serializable;
  */
 public final class LibraryReadFilter extends ReadFilter implements Serializable {
     private static final long serialVersionUID = 1L;
+
     @Argument(fullName = "library", shortName = "library", doc="The name of the library to keep", optional=false)
     public String libraryToKeep = null;
 

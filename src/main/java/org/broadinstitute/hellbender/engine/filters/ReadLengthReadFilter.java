@@ -14,17 +14,17 @@ public final class ReadLengthReadFilter extends ReadFilter implements Serializab
     private static final String maxLengthArgName = "maxReadLength";
 
     @Argument(fullName = maxLengthArgName,
-            shortName = "maxRead",
+            shortName = maxLengthArgName,
             doc="Keep only reads with length at most equal to the specified value",
             optional=false)
     public Integer maxReadLength;
 
     private static final String minLengthArg = "minReadLength";
     @Argument(fullName = minLengthArg,
-            shortName = "minRead",
+            shortName = minLengthArg,
             doc="Keep only reads with length at least equal to the specified value",
-            optional=false)
-    public Integer minReadLength;
+            optional=true)
+    public Integer minReadLength = 1;
 
     @Override
     public boolean test( final GATKRead read ) {

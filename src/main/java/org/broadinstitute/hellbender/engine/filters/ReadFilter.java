@@ -38,10 +38,11 @@ public abstract class ReadFilter implements Predicate<GATKRead>, Serializable {
         }
     }
 
-    private static class ReadFilterAnd extends ReadFilter {
+    protected static class ReadFilterAnd extends ReadFilter {
         private static final long serialVersionUID = 1L;
 
-        final private ReadFilter other;
+        //package accesible for testing
+        final protected ReadFilter other;
 
         public ReadFilterAnd(ReadFilter lhs, ReadFilter rhs) { super(lhs); this.other = rhs;}
 
@@ -49,7 +50,7 @@ public abstract class ReadFilter implements Predicate<GATKRead>, Serializable {
         public boolean test( GATKRead read ) { return delegate.test(read) && other.test(read);}
     }
 
-    private static class ReadFilterOr extends ReadFilter {
+    protected static class ReadFilterOr extends ReadFilter {
         private static final long serialVersionUID = 1L;
 
         final private ReadFilter other;

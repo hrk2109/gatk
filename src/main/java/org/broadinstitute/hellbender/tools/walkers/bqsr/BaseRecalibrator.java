@@ -144,6 +144,8 @@ public final class BaseRecalibrator extends ReadWalker {
 
     @Override
     public List<ReadFilter> getDefaultReadFilters() {
+        //Note: this method is called before command line parsing begins, and thus before a SAMFileHeader is
+        //available through {link #getHeaderForReads}.
         //Note: the order is deliberate - we first check the cheap conditions that do not require decoding the read
         final List<ReadFilter> bqsrFilters = makeBQSRSpecificReadFilters();
         bqsrFilters.add(new WellformedReadFilter());

@@ -1,10 +1,6 @@
-package org.broadinstitute.hellbender.cmdline.GATKPlugin;
-// NOTE: this class needs to live in the plugin package since it contains a test
-// plugin that must live there.
+package org.broadinstitute.hellbender.cmdline;
 
-import org.broadinstitute.hellbender.cmdline.Argument;
-import org.broadinstitute.hellbender.cmdline.CommandLineParser;
-import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
+import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKCommandLinePluginDescriptor;
 import org.broadinstitute.hellbender.cmdline.programgroups.QCProgramGroup;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
@@ -13,14 +9,13 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
- * Test basic command line parser plugin functionality. Because fully testing the plugin
- * functionality requires implementations of multiple classes and subclasses, the unit tests for
- * GATKReadFilterPlugin ReadFilterPluginUnitTest have much more extensive much more coverage
- * of the plugin functionality since they use a real (ReadFilter) plugin class hierarchy.
+ * Test basic command line parser plugin functionality. Fully testing the plugin functionality requires
+ * implementations of multiple classes and subclasses. The unit tests for GATKReadFilterPlugin
+ * ReadFilterPluginUnitTest have much more extensive coverage of the plugin functionality since they
+ * use a real (ReadFilter) plugin class hierarchy.
  */
 public class CommandLineParserPluginUnitTest {
 
@@ -51,8 +46,8 @@ public class CommandLineParserPluginUnitTest {
         }
 
         @Override
-        public String getPackageName() {
-            return "org.broadinstitute.hellbender.cmdline.GATKPlugin";
+        public List<String> getPackageNames() {
+            return Collections.singletonList("org.broadinstitute.hellbender.cmdline");
         }
 
         @Override
@@ -64,15 +59,14 @@ public class CommandLineParserPluginUnitTest {
         }
 
         @Override
-        public Object addInstance(Class<?> pluggableClass) throws IllegalAccessException, InstantiationException {
+        public Object getInstance(Class<?> pluggableClass) throws IllegalAccessException, InstantiationException {
             final TestPluginBase plugin = (TestPluginBase) pluggableClass.newInstance();
-            // use getSimpleName; the classes are all in the same package
             pluginInstances.put(pluggableClass.getSimpleName(), plugin);
             return plugin;
         }
 
         @Override
-        public Set<String> getAllowedStringValues(String longArgName) {
+        public Set<String> getAllowedValuesForDescriptorArgument(String longArgName) {
             if (longArgName.equals(pluginNamesArgName) ){
                 return pluginInstances.keySet();
             }
@@ -104,8 +98,10 @@ public class CommandLineParserPluginUnitTest {
         }
 
         @Override
-        public void getInstances(Consumer<Collection<TestPluginBase>> consumer) {
-            consumer.accept(pluginInstances.values());
+        public List<TestPluginBase> getAllInstances() {
+            List<TestPluginBase> pluginList = new ArrayList<>();
+            pluginList.addAll(pluginInstances.values());
+            return pluginList;
         }
     }
 
@@ -131,7 +127,7 @@ public class CommandLineParserPluginUnitTest {
         PlugInTest plugInTest = new PlugInTest();
         final CommandLineParser clp = new CommandLineParser(
                 plugInTest,
-                Collections.singletonList(TestPluginDescriptor.class));
+                Collections.singletonList(new TestPluginDescriptor()));
 
         Assert.assertTrue(clp.parseArguments(System.err, args));
 
@@ -139,8 +135,7 @@ public class CommandLineParserPluginUnitTest {
                 (TestPluginDescriptor) clp.getPluginDescriptor(CommandLineParserPluginUnitTest.TestPluginDescriptor.class);
         Assert.assertNotNull(pid);
 
-        List<TestPluginBase> pluginBases = new ArrayList<>();
-        pid.getInstances(list -> pluginBases.addAll(list));
+        List<TestPluginBase> pluginBases = pid.getAllInstances();
 
         Assert.assertEquals(pluginBases.size(), expectedInstanceCount);
     }
@@ -150,15 +145,12 @@ public class CommandLineParserPluginUnitTest {
         PlugInTest plugInTest = new PlugInTest();
         final CommandLineParser clp = new CommandLineParser(
                 plugInTest,
-                Collections.singletonList(TestPluginDescriptor.class));
+                Collections.singletonList(new TestPluginDescriptor()));
         final String out = BaseTest.captureStderr(() -> clp.usage(System.err, true)); // with common args
 
         TestPluginDescriptor pid =
                 (TestPluginDescriptor) clp.getPluginDescriptor(CommandLineParserPluginUnitTest.TestPluginDescriptor.class);
         Assert.assertNotNull(pid);
-
-        List<TestPluginBase> pluginBases = new ArrayList<>();
-        pid.getInstances(list -> pluginBases.addAll(list));
 
         // Make sure TestPlugin.argumentName is listed as conditional
         final int condIndex = out.indexOf("Conditional Arguments:");

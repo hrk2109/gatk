@@ -1,30 +1,37 @@
 package org.broadinstitute.hellbender.cmdline.GATKPlugin;
 
+import com.sun.jersey.server.impl.wadl.WadlResource;
 import htsjdk.samtools.SAMFileHeader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.broadinstitute.hellbender.cmdline.Argument;
-import org.broadinstitute.hellbender.cmdline.CommandLineParser;
 import org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
+import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.exceptions.UserException;
 import org.broadinstitute.hellbender.utils.Utils;
 
 import java.util.*;
 import java.util.function.BinaryOperator;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * A GATKCommandLinePluginDescriptor for the ReadFilter class
+ * A GATKCommandLinePluginDescriptor for ReadFilter plugins
  */
 public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescriptor<ReadFilter> {
+
+    protected final Logger logger = LogManager.getLogger(this.getClass());
+
+    private static final String pluginPackageName = "org.broadinstitute.hellbender.engine.filters";
+    private static final Class<?> pluginBaseClass = org.broadinstitute.hellbender.engine.filters.ReadFilter.class;
 
     @Argument(fullName = StandardArgumentDefinitions.READ_FILTER_LONG_NAME,
             shortName = StandardArgumentDefinitions.READ_FILTER_SHORT_NAME,
             doc="Read filters to be applied before analysis", optional=true)
-    public final List<String> readFilterNames = new ArrayList<>(); // preserve order
+    public final List<String> userReadFilterNames = new ArrayList<>(); // preserve order
 
     final String disableReadFilterArgName = "disableReadFilter";
     @Argument(fullName = disableReadFilterArgName,
@@ -32,73 +39,133 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
             doc="Read filters to be disabled before analysis", optional=true)
     public final Set<String> disableFilters = new HashSet<>();
 
-    // Map of read filter class (simple) names to the corresponding plugin instance
-    public Map<String, ReadFilter> readFilters = new HashMap<>();
+    @Argument(fullName = "disableAllReadFilters",
+            shortName = "disableAllReadFilters",
+            doc = "Disable all read filters", common = false, optional = true)
+    public boolean disableAllReadFilters = false;
+
+    // Map of read filter (simple) class names to the corresponding discovered plugin instance
+    private Map<String, ReadFilter> readFilters = new HashMap<>();
+
+    // Map of read filter (simple) class names to the corresponding default plugin instance
+    private Map<String, ReadFilter> toolDefaultReadFilters = new HashMap<>();
+
+    // Set of dependent args for which we've seen values (requires predecessor)
+    private Set<String> requiredPredecessors = new HashSet<>();
+
+    /**
+     * @param toolDefaultFilters Default filters that may be supplied with arguments
+     *                           on the command line. May be null.
+     */
+    public GATKReadFilterPluginDescriptor(final List<ReadFilter> toolDefaultFilters) {
+        if (null != toolDefaultFilters) {
+            toolDefaultFilters.forEach(f -> toolDefaultReadFilters.put(f.getClass().getSimpleName(), f));
+        }
+    }
 
     /////////////////////////////////////////////////////////
     // GATKCommandLinePluginDescriptor implementation methods
 
+    /**
+     * @return the class object for the base class of all plugins managed by thid descriptor
+     */
     @Override
-    public Class<?> getPluginClass() {return org.broadinstitute.hellbender.engine.filters.ReadFilter.class;}
+    public Class<?> getPluginClass() {return pluginBaseClass;}
 
+    /**
+     * A list of package names which will be searched for plugins managed by the descriptor.
+     * @return
+     */
     @Override
-    public String getPackageName() {return "org.broadinstitute.hellbender.engine.filters";};
+    public List<String> getPackageNames() {return Collections.singletonList(pluginPackageName);};
 
     @Override
     public Predicate<Class<?>> getClassFilter() {
-        //TODO should we use an opt-in annotation instead of runtime filtering ?
         return c -> {
-            // don't use the ReadFilter base class, or the CountingReadFilter, or the unit tests
+            // don't use the ReadFilter base class, it's inner classes, the CountingReadFilter,
+            // or the unit tests
             return !c.getName().equals(this.getPluginClass().getName()) &&
-                    !c.getName().startsWith(this.getPluginClass().getName() + "$") &&
                     !c.getName().startsWith(CountingReadFilter.class.getName()) &&
+                    !c.getName().startsWith(this.getPluginClass().getName() + "$") &&
                     !c.getName().contains("UnitTest$");
         };
     }
 
     // Instantiate a new ReadFilter derived object and save it in the list
     @Override
-    public Object addInstance(final Class<?> pluggableClass)
-            throws IllegalAccessException, InstantiationException {
-        final ReadFilter readFilter = (ReadFilter) pluggableClass.newInstance();
-        // use getSimpleName; the classes are all in the same package
-        readFilters.put(pluggableClass.getSimpleName(), readFilter);
+    public Object getInstance(final Class<?> pluggableClass) throws IllegalAccessException, InstantiationException {
+        ReadFilter readFilter = null;
+        final String simpleName = pluggableClass.getSimpleName();
+
+        if (readFilters.containsKey(simpleName)) {
+            // we found a plugin class with a name that collides with an existing class;
+            // plugin names must be unique even across packages
+            throw new IllegalArgumentException(
+                    String.format("A plugin class name collision was detected (%s/%s). " +
+                            "Simple names of plugin classes must be unique across packages.",
+                            pluggableClass.getName(),
+                            readFilters.get(simpleName).getClass().getName())
+            );
+        }
+        else if (toolDefaultReadFilters.containsKey(simpleName)) {
+            // an instance of this class was provided by the tool as one of it's default filters;
+            // use the default instance as the target for command line argument values
+            // rather than creating a new one in case it has state provided by the tool
+            readFilter = toolDefaultReadFilters.get(simpleName);
+        }
+        else {
+            readFilter = (ReadFilter) pluggableClass.newInstance();
+            readFilters.put(simpleName, readFilter);
+        }
         return readFilter;
     }
 
-    // Verify that this target plugin class's dependent value has been specified
     @Override
-    public boolean isDependentArgumentAllowed(Class<?> targetPluginClass) {
-        return readFilterNames.contains(targetPluginClass.getSimpleName());
+    public boolean isDependentArgumentAllowed(final Class<?> dependentClass) {
+        // make sure the predecessor for this dependent class was either specified
+        // on the command line or is a tool default, otherwise reject it
+        String predecessorName = dependentClass.getSimpleName();
+        boolean isAllowed = userReadFilterNames.contains(predecessorName)
+                || (toolDefaultReadFilters.get(predecessorName) != null);
+        if (isAllowed) {
+            // keep track of the ones we allow so we can validate later that they
+            // weren't subsequently disabled
+            requiredPredecessors.add(predecessorName);
+        }
+        return isAllowed;
     }
 
     /**
      * Pass back the list of ReadFilter instances that were actually seen on the
-     * command line in the same order they were specified
+     * command line in the same order they were specified. This list does not
+     * include the tool defaults.
      */
     @Override
-    public void getInstances(final Consumer<Collection<ReadFilter>> consumer) {
-        // add the instances in the order they were specified on the command line
-        final ArrayList<ReadFilter> filters = new ArrayList<>(readFilters.size());
-        readFilterNames.forEach(s -> filters.add(getReadFilterForName(s)));
-        consumer.accept(filters);
-    }
-
-    // Find the instance of the given read filter in the instance list.
-    private ReadFilter getReadFilterForName(final String filterName) {
-        ReadFilter rf = null;
-        for (Map.Entry<String, ReadFilter> entry : readFilters.entrySet()) {
-            if (entry.getKey().endsWith(filterName)) {
-                rf = entry.getValue();
-                break;
+    public List<ReadFilter> getAllInstances() {
+        // Add the instances in the order they were specified on the command line
+        // (use the order of userReadFilterNames list).
+        //
+        // NOTE: it's possible for the userReadFilterNames list to contain one or more
+        // names for which there are no corresponding instances in the readFilters list.
+        // This happens when the user specifies a filter name on the command line that's
+        // already included in the toolDefault list, since in that case the descriptor
+        // uses the tool-supplied instance and doesn't add a separate one to the
+        // readFilters list, but the name from the command line still appears in
+        // userReadFilterNames. In that case, we don't include the tool's instance in the
+        // list returned by this method since it will be merged in later by the merge method.
+        final ArrayList<ReadFilter> filters = new ArrayList<>(userReadFilterNames.size());
+        userReadFilterNames.forEach(s -> {
+            ReadFilter rf = readFilters.get(s);
+            if (rf != null) {
+                filters.add(rf);
             }
-        }
-        return rf;
+        });
+        return filters;
     }
 
     // Return the allowable values for readFilterNames/disableReadFilter
     @Override
-    public Set<String> getAllowedStringValues(final String longArgName) {
+    public Set<String> getAllowedValuesForDescriptorArgument(final String longArgName) {
         if (longArgName.equals(StandardArgumentDefinitions.READ_FILTER_LONG_NAME) ||
                 longArgName.equals(disableReadFilterArgName)) {
             return readFilters.keySet();
@@ -113,33 +180,55 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
      */
     @Override
     public void validateArguments() {
-        // first, validate that no filter is disabled *and* enabled
-        disableFilters.forEach(
+        // throw if any filter is both enabled *and* disabled by the user
+        final Set<String> enabledAndDisabled = new HashSet<>(userReadFilterNames);
+        enabledAndDisabled.retainAll(disableFilters);
+        enabledAndDisabled.forEach(
             s -> {
-                if (readFilterNames.contains(s)) {
-                    throw new UserException.CommandLineException(
-                            "Read filter: " + s + " is both enabled and disabled");
-                }
-            });
-        readFilterNames.forEach(
-            s -> {
-                if (disableFilters.contains(s)) {
-                    throw new UserException.CommandLineException(
-                            "Read filter: " + s + " is both enabled and disabled");
-                }
+                throw new UserException.CommandLineException(
+                        String.format("Read filter (%s) is both enabled and disabled", s));
             });
 
-        // now validate that each filter specified is valid (has a corresponding instance)
-        Map<String, ReadFilter> requestedReadFilters = new HashMap<>();
-        readFilterNames.forEach(s -> {
+        // warn if a disabled filter wasn't enabled by the tool in the first place
+        disableFilters.forEach(s -> {
+            if (!toolDefaultReadFilters.containsKey(s)) {
+                logger.warn(String.format("Disabled filter (%s) is not enabled by this tool", s));
+            }
+        });
+
+        // warn on redundant enabling of filters already enabled by default
+        final Set<String> redundant = new HashSet<>(toolDefaultReadFilters.keySet());
+        redundant.retainAll(userReadFilterNames);
+        redundant.forEach(
+            s -> {
+                logger.warn(String.format("Redundant enabled filter (%s) is enabled for this tool by default", s));
+            });
+
+        // throw if args were specified for filter that was also disabled
+        disableFilters.forEach(s -> {
+            if (requiredPredecessors.contains(s)) {
+                throw new UserException.CommandLineException(
+                        String.format("Values were supplied for (%s) that is also disabled", s));
+            }
+        });
+
+        // throw if a filter name was specified that has no corresponding instance
+        final Map<String, ReadFilter> requestedReadFilters = new HashMap<>();
+        userReadFilterNames.forEach(s -> {
             ReadFilter trf = readFilters.get(s);
             if (null == trf) {
-                throw new UserException.CommandLineException("Unrecognized read filter name: " + s);
+                if (!toolDefaultReadFilters.containsKey(s)) {
+                    throw new UserException.CommandLineException("Unrecognized read filter name: " + s);
+                }
             }
             else {
                 requestedReadFilters.put(s, trf);
             }
         });
+
+        // update the readFilters list with the final list of filters specified on the
+        // command line; do not include tool defaults as these will be merged in at merge
+        // time if they were not disabled
         readFilters = requestedReadFilters;
     }
 
@@ -148,7 +237,7 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
 
     /**
      * Determine if a particular ReadFilter was disabled on the command line.
-     * @param filterName
+     * @param filterName name of the filter to query
      * @return true if the name appears the list of disabled filters
      */
     public boolean isDisabledFilter(final String filterName) {
@@ -159,41 +248,87 @@ public class GATKReadFilterPluginDescriptor extends GATKCommandLinePluginDescrip
      * Merge the default filters with the users's command line read filter requests, then initialize
      * the resulting filters.
      *
-     * @param defaultFilters - default filters for the tool context
-     * @param samHeader - a SAMFileHeader to initialize read filter instances
+     * @param samHeader - a SAMFileHeader to use to initialize read filter instances
+     * @return Single merged read filter.
+     */
+    public ReadFilter getMergedReadFilter(final SAMFileHeader samHeader) {
+        Utils.nonNull(samHeader);
+        return getMergedReadFilter(
+                samHeader,
+                f -> f,
+                (f1, f2) -> f1.and(f2)
+        );
+    }
+
+    /**
+     * Merge the default filters with the users's command line read filter requests, then initialize
+     * the resulting filters.
+     *
+     * @param samHeader - a SAMFileHeader to use to initialize read filter instances
+     * @return Single merged counting read filter.
+     */
+    public CountingReadFilter getMergedCountingReadFilter(final SAMFileHeader samHeader) {
+        Utils.nonNull(samHeader);
+        return getMergedReadFilter(
+                samHeader,
+                f -> new CountingReadFilter(f),
+                (f1, f2) -> f1.and(f2)
+        );
+    }
+
+    /**
+     * Merge the default filters with the users's command line read filter requests, then initialize
+     * the resulting filters.
+     *
+     * @param samHeader - a SAMFileHeader to initialize read filter instances. May not be null.
      * @param wrapperFunction - a wrapper function for each read filter; used to wrap read filters in
      *                        CountingReadFilters
-     * @param mergeAccumulator - identity filter for base accumulator in list reduction (this is the default
-     *                         filter returned if no filters are left after reducing the merged filter list)
+     * @param mergeFunction - function to use to merge ReadFilters, usually ReadFilter.and
      * @param <T> extends ReadFilter, type returned by the wrapperFunction
-     * @return
+     * @return Single merged read filter.
      */
-    public <T extends ReadFilter> T getMergedReadFilters(
-            final List<ReadFilter> defaultFilters,
+    public <T extends ReadFilter> T getMergedReadFilter(
             final SAMFileHeader samHeader,
             final Function<ReadFilter, T> wrapperFunction,
-            final BinaryOperator<T> mergeFunction,
-            final T mergeAccumulator) {
+            final BinaryOperator<T> mergeFunction) {
 
-        Utils.nonNull(defaultFilters);
         Utils.nonNull(samHeader);
         Utils.nonNull(wrapperFunction);
         Utils.nonNull(mergeFunction);
-        Utils.nonNull(mergeAccumulator);
+
+        if (disableAllReadFilters) {
+            return wrapperFunction.apply(ReadFilterLibrary.ALLOW_ALL_READS);
+        }
 
         // start with the tool's default filters and remove any that were disabled on the command line
-        final List<ReadFilter> userSpecifiedReadFilters = defaultFilters
+        final List<ReadFilter> finalFilters = toolDefaultReadFilters
+                .values()
                 .stream()
                 .filter(f -> !isDisabledFilter(f.getClass().getSimpleName()))
                 .collect(Collectors.toList());
 
-        // now add in any additional filters enabled on the command line in the order in which
-        // they were specified
-        getInstances(orderedList -> orderedList.forEach(f -> userSpecifiedReadFilters.add(f)));
+        // now add in any additional filters enabled on the command line (preserving order)
+        final List<ReadFilter> clFilters = getAllInstances();
+        if (clFilters != null) {
+            clFilters.forEach(f -> finalFilters.add(f));
+        }
 
-        // give each remaining filter a header, then map/wrap and reduce using the merge function
-        userSpecifiedReadFilters.forEach(f -> f.setHeader(samHeader));
-        return userSpecifiedReadFilters.stream().map(wrapperFunction).reduce(mergeAccumulator, mergeFunction);
+        // Give each remaining filter a header, then map/wrap and reduce using the merge function.
+        // Reducing will leave an unnecessary identity filter (ALLOW_ALL_READS) at the start, so
+        // iterate instead
+        if (finalFilters == null || finalFilters.isEmpty()) {
+            return wrapperFunction.apply(ReadFilterLibrary.ALLOW_ALL_READS);
+        }
+        else {
+            finalFilters.forEach(f -> f.setHeader(samHeader));
+            T finalFilter = wrapperFunction.apply(finalFilters.get(0));
+            for (int i = 1; i < finalFilters.size(); i++) {
+                finalFilter = mergeFunction.apply(
+                        finalFilter, wrapperFunction.apply(finalFilters.get(i))
+                );
+            }
+            return finalFilter;
+        }
     }
 
 }

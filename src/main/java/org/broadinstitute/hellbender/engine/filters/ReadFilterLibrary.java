@@ -125,23 +125,23 @@ public final class ReadFilterLibrary {
     /**
      * Static, stateless read filter instances
      */
-    public static AllowAllReads ALLOW_ALL_READS = new AllowAllReads();
-    public static CigarIsSupported CIGAR_IS_SUPPORTED = new CigarIsSupported();
-    public static GoodCigar GOOD_CIGAR = new GoodCigar();
-    public static HasReadGroup HAS_READ_GROUP = new HasReadGroup();
-    public static HasMatchingBasesAndQuals HAS_MATCHING_BASES_AND_QUALS = new HasMatchingBasesAndQuals();
-    public static Mapped MAPPED = new Mapped();
-    public static MappingQualityAvailable MAPPING_QUALITY_AVAILABLE = new MappingQualityAvailable();
-    public static MappingQualityNotZero MAPPING_QUALITY_NOT_ZERO   = new MappingQualityNotZero();
-    public static MateOnSameContigOrNoMappedMate MATE_ON_SAME_CONTIG_OR_NO_MAPPED_MATE = new MateOnSameContigOrNoMappedMate();
-    public static MateDifferentStrand MATE_DIFFERENT_STRAND = new MateDifferentStrand();
-    public static NotDuplicate NOT_DUPLICATE = new NotDuplicate();
-    public static NonZeroReferenceLengthAlignment NON_ZERO_REFERENCE_LENGTH_ALIGNMENT = new NonZeroReferenceLengthAlignment();
-    public static PassesVendorQualityCheck PASSES_VENDOR_QUALITY_CHECK = new PassesVendorQualityCheck();
-    public static PrimaryAlignment PRIMARY_ALIGNMENT = new PrimaryAlignment();
-    public static ReadLengthEqualsCigarLength READLENGTH_EQUALS_CIGARLENGTH = new ReadLengthEqualsCigarLength();
-    public static SeqIsStored SEQ_IS_STORED = new SeqIsStored();
-    public static ValidAlignmentStart VALID_ALIGNMENT_START = new ValidAlignmentStart();
-    public static ValidAlignmentEnd VALID_ALIGNMENT_END = new ValidAlignmentEnd();
+    public static final AllowAllReads ALLOW_ALL_READS = new AllowAllReads();
+    public static final CigarIsSupported CIGAR_IS_SUPPORTED = new CigarIsSupported();
+    public static final GoodCigar GOOD_CIGAR = new GoodCigar();
+    public static final HasReadGroup HAS_READ_GROUP = new HasReadGroup();
+    public static final HasMatchingBasesAndQuals HAS_MATCHING_BASES_AND_QUALS = new HasMatchingBasesAndQuals();
+    public static final Mapped MAPPED = new Mapped();
+    public static final MappingQualityAvailable MAPPING_QUALITY_AVAILABLE = new MappingQualityAvailable();
+    public static final MappingQualityNotZero MAPPING_QUALITY_NOT_ZERO   = new MappingQualityNotZero();
+    public static final MateOnSameContigOrNoMappedMate MATE_ON_SAME_CONTIG_OR_NO_MAPPED_MATE = new MateOnSameContigOrNoMappedMate();
+    public static final MateDifferentStrand MATE_DIFFERENT_STRAND = new MateDifferentStrand();
+    public static final NotDuplicate NOT_DUPLICATE = new NotDuplicate();
+    public static final NonZeroReferenceLengthAlignment NON_ZERO_REFERENCE_LENGTH_ALIGNMENT = new NonZeroReferenceLengthAlignment();
+    public static final PassesVendorQualityCheck PASSES_VENDOR_QUALITY_CHECK = new PassesVendorQualityCheck();
+    public static final PrimaryAlignment PRIMARY_ALIGNMENT = new PrimaryAlignment();
+    public static final ReadLengthEqualsCigarLength READLENGTH_EQUALS_CIGARLENGTH = new ReadLengthEqualsCigarLength();
+    public static final SeqIsStored SEQ_IS_STORED = new SeqIsStored();
+    public static final ValidAlignmentStart VALID_ALIGNMENT_START = new ValidAlignmentStart();
+    public static final ValidAlignmentEnd VALID_ALIGNMENT_END = new ValidAlignmentEnd();
 
 }

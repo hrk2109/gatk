@@ -2,7 +2,6 @@ package org.broadinstitute.hellbender.engine.spark;
 
 import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKCommandLinePluginDescriptor;
 import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKReadFilterPluginDescriptor;
-import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.utils.SerializableFunction;
 import com.google.cloud.genomics.dataflow.utils.GCSOptions;
 import htsjdk.samtools.SAMFileHeader;
@@ -95,11 +94,11 @@ public abstract class GATKSparkTool extends SparkCommandLineProgram {
     private List<SimpleInterval> intervals;
 
     /**
-     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Return the list of GATKCommandLinePluginDescriptor objects to be used for this CLP.
      * Use the read filter plugin.
      */
-    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() {
-        return Collections.singletonList(GATKReadFilterPluginDescriptor.class);
+    protected List<? extends GATKCommandLinePluginDescriptor<?>> getPluginDescriptors() {
+        return Collections.singletonList(new GATKReadFilterPluginDescriptor(getDefaultReadFilters()));
     }
 
     /**
@@ -300,21 +299,11 @@ public abstract class GATKSparkTool extends SparkCommandLineProgram {
      * composition methods.
      */
     public ReadFilter makeReadFilter() {
-        // Unless all filters are disabled, merge the tool's default filters with the users's command line
-        // read filter requests, then initialize the resulting filters.
         GATKReadFilterPluginDescriptor readFilterPlugin =
                 (GATKReadFilterPluginDescriptor)
                         commandLineParser.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
 
-        return readArguments.disableAllReadFilters == true ?
-                ReadFilterLibrary.ALLOW_ALL_READS :
-                readFilterPlugin.getMergedReadFilters(
-                        getDefaultReadFilters(),
-                        getHeaderForReads(),
-                        f -> f, // no wrapping function; use the plain read filters
-                        (f1 , f2) -> f1.and(f2),
-                        ReadFilterLibrary.ALLOW_ALL_READS
-                );
+        return readFilterPlugin.getMergedReadFilter(getHeaderForReads());
     }
 
     /**
@@ -323,10 +312,13 @@ public abstract class GATKSparkTool extends SparkCommandLineProgram {
      * default implementation uses the {@link WellformedReadFilter} filter with all default options. Subclasses
      * can override to provide an alternative default filter list.
      *
+     * Note: this method is called before command line parsing begins, and thus before a SAMFileHeader is
+     * available through {link #getHeaderForReads}.
+     *
      * @return List of individual filters to be applied for this tool.
      */
     public List<ReadFilter> getDefaultReadFilters() {
-        return Arrays.asList(new WellformedReadFilter(getHeaderForReads()));
+        return Arrays.asList(new WellformedReadFilter());
     }
 
     /**

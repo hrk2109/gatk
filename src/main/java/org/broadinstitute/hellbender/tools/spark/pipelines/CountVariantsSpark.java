@@ -34,12 +34,12 @@ public final class CountVariantsSpark extends GATKSparkTool {
     public String out;
 
     /**
-     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Return the list of GATKCommandLinePluginDescriptor objects to be used for this CLP.
      * GATKSparkTool returns the GATKReadFilterPluginDescriptor, but we don't want that
      * for Variant tools.
      */
     @Override
-    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() {
+    protected List<? extends GATKCommandLinePluginDescriptor<?>> getPluginDescriptors() {
         return null;
     }
 

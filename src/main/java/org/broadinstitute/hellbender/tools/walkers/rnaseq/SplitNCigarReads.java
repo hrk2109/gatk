@@ -99,7 +99,7 @@ public final class SplitNCigarReads extends ReadWalker {
 
     @Override
     public CountingReadFilter makeReadFilter() {
-        return new CountingReadFilter("ALL_READS", ReadFilterLibrary.ALLOW_ALL_READS);
+        return new CountingReadFilter(ReadFilterLibrary.ALLOW_ALL_READS);
     }
     
     @Override

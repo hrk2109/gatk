@@ -12,8 +12,8 @@ import java.io.Serializable;
 public final class ReadNameReadFilter extends ReadFilter implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    @Argument(fullName = "readName", shortName = "rn", doc="Keep only reads with this read name", optional=false)
-    public String readName;
+    @Argument(fullName = "readName", shortName = "readName", doc="Keep only reads with this read name", optional=false)
+    public String readName = null;
 
     @Override
     public boolean test( final GATKRead read ) {

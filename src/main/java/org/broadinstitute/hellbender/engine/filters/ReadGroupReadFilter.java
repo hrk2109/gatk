@@ -11,7 +11,7 @@ import java.io.Serializable;
  */
 public final class ReadGroupReadFilter extends ReadFilter implements Serializable{
     private static final long serialVersionUID = 1L;
-    @Argument(fullName = "read_group_to_keep", shortName = "goodRG", doc="The name of the read group to keep", optional=false)
+    @Argument(fullName = "keepReadGroup", shortName = "keepReadGroup", doc="The name of the read group to keep", optional=false)
     public String readGroup = null;
 
     @Override

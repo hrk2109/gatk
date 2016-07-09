@@ -269,7 +269,7 @@ public final class PrintReadsSparkIntegrationTest extends CommandLineProgramTest
         };
     }
 
-    @Test(dataProvider = "readFilterTestData")
+    @Test(dataProvider = "readFilterTestData", groups = "spark")
     public void testReadFilters(
             final String input,
             final String reference,

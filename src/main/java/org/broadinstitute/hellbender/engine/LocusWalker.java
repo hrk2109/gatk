@@ -4,7 +4,6 @@ import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMReadGroupRecord;
 import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKCommandLinePluginDescriptor;
 import org.broadinstitute.hellbender.cmdline.GATKPlugin.GATKReadFilterPluginDescriptor;
-import org.broadinstitute.hellbender.cmdline.argumentcollections.ReadInputArgumentCollection;
 import org.broadinstitute.hellbender.engine.filters.CountingReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
@@ -65,11 +64,11 @@ public abstract class LocusWalker extends GATKTool {
     }
 
     /**
-     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Return the list of GATKCommandLinePluginDescriptors to be used for this CLP.
      * Uses the read filter plugin.
      */
-    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() {
-        return Collections.singletonList(GATKReadFilterPluginDescriptor.class);
+    protected List<? extends GATKCommandLinePluginDescriptor<?>> getPluginDescriptors() {
+        return Collections.singletonList(new GATKReadFilterPluginDescriptor(getDefaultReadFilters()));
     }
 
     /**
@@ -87,25 +86,12 @@ public abstract class LocusWalker extends GATKTool {
      * composition methods.
      */
     public CountingReadFilter makeReadFilter(){
-        // This filter gets returned if all others are disabled.
-        CountingReadFilter fallbackFilter = new CountingReadFilter(
-                ReadFilterLibrary.ALLOW_ALL_READS.getClass().getSimpleName(),
-                ReadFilterLibrary.ALLOW_ALL_READS);
-
         // Unless all filters are disabled, merge the tool's default filters with the users's command line
         // read filter requests, then initialize the resulting filters and wrap each one in a CountingReadFilter.
         GATKReadFilterPluginDescriptor readFilterPlugin =
                 (GATKReadFilterPluginDescriptor)
                         commandLineParser.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
-        return readArguments.disableAllReadFilters == true ?
-                fallbackFilter :
-                readFilterPlugin.getMergedReadFilters(
-                        getDefaultReadFilters(),
-                        getHeaderForReads(),
-                        f -> new CountingReadFilter(f.getClass().getSimpleName(), f),
-                        (f1 , f2) -> f1.and(f2),
-                        fallbackFilter
-                );
+        return readFilterPlugin.getMergedCountingReadFilter(getHeaderForReads());
     }
 
     /**
@@ -113,11 +99,15 @@ public abstract class LocusWalker extends GATKTool {
      * by this method are subject to selective enabling/disabling by the user via the command line. The
      * default implementation uses the {@link WellformedReadFilter} and {@link ReadFilterLibrary.Mapped}filter
      * with all default options. Subclasses can override to provide alternative filters.
+     *
+     * Note: this method is called before command line parsing begins, and thus before a SAMFileHeader is
+     * available through {link #getHeaderForReads}.
+     *
      * @return List of individual filters to be applied for this tool.
      */
     public List<ReadFilter> getDefaultReadFilters() {
         final List<ReadFilter> defaultFilters = new ArrayList<>(2);
-        defaultFilters.add(new WellformedReadFilter(getHeaderForReads()));
+        defaultFilters.add(new WellformedReadFilter());
         defaultFilters.add(new ReadFilterLibrary.Mapped());
         return defaultFilters;
     }

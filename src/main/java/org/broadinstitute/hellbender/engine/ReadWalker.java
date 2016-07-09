@@ -36,11 +36,11 @@ public abstract class ReadWalker extends GATKTool {
     public static final int FEATURE_CACHE_LOOKAHEAD = 1_000;
 
     /**
-     * Return the list of GATKCommandLinePluginDescriptor classes to be used for this CLP.
+     * Return the list of GATKCommandLinePluginDescriptors to be used for this tool.
      * Uses the read filter plugin.
      */
-    protected List<Class<? extends GATKCommandLinePluginDescriptor<?>>> getPluginDescriptors() {
-        return Collections.singletonList(GATKReadFilterPluginDescriptor.class);
+    protected List<? extends GATKCommandLinePluginDescriptor<?>> getPluginDescriptors() {
+        return Collections.singletonList(new GATKReadFilterPluginDescriptor(getDefaultReadFilters()));
     }
 
     /**
@@ -118,26 +118,10 @@ public abstract class ReadWalker extends GATKTool {
      * composition methods.
      */
     public CountingReadFilter makeReadFilter(){
-        // This filter gets returned if all others are disabled.
-        CountingReadFilter defaultFilter = new CountingReadFilter(
-                ReadFilterLibrary.ALLOW_ALL_READS.getClass().getSimpleName(),
-                ReadFilterLibrary.ALLOW_ALL_READS);
-
         GATKReadFilterPluginDescriptor readFilterPlugin =
                 (GATKReadFilterPluginDescriptor)
                         commandLineParser.getPluginDescriptor(GATKReadFilterPluginDescriptor.class);
-
-        // Unless all filters are disabled, merge the tool's default filters with the users's command line
-        // read filter requests, then initialize the resulting filters and wrap each one in a CountingReadFilter.
-        return readArguments.disableAllReadFilters == true ?
-                defaultFilter :
-                readFilterPlugin.getMergedReadFilters(
-                        getDefaultReadFilters(),
-                        getHeaderForReads(),
-                        f -> new CountingReadFilter(f.getClass().getSimpleName(), f),
-                        (f1 , f2) -> f1.and(f2),
-                        defaultFilter
-                );
+        return readFilterPlugin.getMergedCountingReadFilter(getHeaderForReads());
     }
 
     /**
@@ -145,10 +129,14 @@ public abstract class ReadWalker extends GATKTool {
      * by this method are subject to selective enabling/disabling by the user via the command line. The
      * default implementation uses the {@link WellformedReadFilter} filter with all default options. Subclasses
      * can override to provide alternative filters.
+     *
+     * Note: this method is called before command line parsing begins, and thus before a SAMFileHeader is
+     * available through {link #getHeaderForReads}.
+     *
      * @return List of individual filters to be applied for this tool.
      */
     public List<ReadFilter> getDefaultReadFilters() {
-        return Collections.singletonList(new WellformedReadFilter(getHeaderForReads()));
+        return Collections.singletonList(new WellformedReadFilter());
     }
 
     /**
