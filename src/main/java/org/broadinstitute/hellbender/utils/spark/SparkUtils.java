@@ -1,5 +1,6 @@
 package org.broadinstitute.hellbender.utils.spark;
 
+import com.google.common.collect.ImmutableList;
 import htsjdk.samtools.SAMFileHeader;
 import htsjdk.samtools.SAMSequenceRecord;
 import htsjdk.samtools.SAMTextHeaderCodec;
@@ -112,34 +113,56 @@ public final class SparkUtils {
                                                                                            FlatMapFunction2<Iterator<R>, Iterator<I>, T> f) {
         // Find the total extent of all reads in each partition. This requires that the input reads
         // are scanned over (to find end points). This should be faster than shuffling though.
-        List<PartitionLocatable<SimpleInterval>> partitionReadExtents = reads.mapPartitionsWithIndex(new Function2<Integer, Iterator<R>, Iterator<PartitionLocatable<SimpleInterval>>>() {
-            private static final long serialVersionUID = 1L;
+//        List<PartitionLocatable<SimpleInterval>> partitionReadExtents = reads.mapPartitionsWithIndex(new Function2<Integer, Iterator<R>, Iterator<PartitionLocatable<SimpleInterval>>>() {
+//            private static final long serialVersionUID = 1L;
+//
+//            @Override
+//            public Iterator<PartitionLocatable<SimpleInterval>> call(Integer index, Iterator<R> it) throws Exception {
+//                if (!it.hasNext()) {
+//                    return Collections.emptyIterator();
+//                }
+//                List<PartitionLocatable<SimpleInterval>> extents = new ArrayList<>();
+//                R read = it.next();
+//                String contig = read.getContig();
+//                int minStart = read.getStart();
+//                int maxEnd = read.getEnd();
+//                while (it.hasNext()) {
+//                    R next = it.next();
+//                    if (!contig.equals(next.getContig())) {
+//                        extents.add(new PartitionLocatable<>(index, new SimpleInterval(contig, minStart, maxEnd)));
+//                        contig = next.getContig();
+//                        minStart = next.getStart();
+//                        maxEnd = next.getEnd();
+//                        continue;
+//                    }
+//                    maxEnd = Math.max(maxEnd, next.getEnd());
+//                }
+//                extents.add(new PartitionLocatable<>(index, new SimpleInterval(contig, minStart, maxEnd)));
+//                return extents.iterator();
+//            }
+//        }, true).collect();
 
-            @Override
-            public Iterator<PartitionLocatable<SimpleInterval>> call(Integer index, Iterator<R> it) throws Exception {
-                if (!it.hasNext()) {
-                    return Collections.emptyIterator();
-                }
-                List<PartitionLocatable<SimpleInterval>> extents = new ArrayList<>();
-                R read = it.next();
-                String contig = read.getContig();
-                int minStart = read.getStart();
-                int maxEnd = read.getEnd();
-                while (it.hasNext()) {
-                    R next = it.next();
-                    if (!contig.equals(next.getContig())) {
-                        extents.add(new PartitionLocatable<>(index, new SimpleInterval(contig, minStart, maxEnd)));
-                        contig = next.getContig();
-                        minStart = next.getStart();
-                        maxEnd = next.getEnd();
-                        continue;
-                    }
-                    maxEnd = Math.max(maxEnd, next.getEnd());
-                }
-                extents.add(new PartitionLocatable<>(index, new SimpleInterval(contig, minStart, maxEnd)));
-                return extents.iterator();
+        List<SimpleInterval> splitPoints = reads.mapPartitions((FlatMapFunction<Iterator<R>, SimpleInterval>) it -> {
+            R read = it.next();
+            // note that end points are filled in below
+            return ImmutableList.of(new SimpleInterval(read.getContig(), read.getStart(), read.getStart() + 1));
+        }).collect();
+        List<PartitionLocatable<SimpleInterval>> partitionReadExtents = new ArrayList<>();
+        for (int i = 0; i < splitPoints.size(); i++) {
+            SimpleInterval interval = splitPoints.get(i);
+            if (i < splitPoints.size() - 1) {
+                SimpleInterval next = splitPoints.get(i + 1);
+                // TODO: check contig change
+                interval = new SimpleInterval(interval.getContig(), interval.getStart(), next.getEnd()); // assumes reads are same size
+                partitionReadExtents.add(new PartitionLocatable<>(i, interval));
             }
-        }, true).collect();
+        }
+        {
+            SimpleInterval interval = splitPoints.get(splitPoints.size() - 1);
+            interval = new SimpleInterval(interval.getContig(), interval.getStart(), getChromosomeSizes().get(interval.getContig()));
+            partitionReadExtents.add(new PartitionLocatable<>(splitPoints.size() - 1, interval));
+            // TODO: need to add in all remaining contigs
+        }
 
         // For each interval find which partition it starts and ends in.
         // An interval is processed in the partition it starts in. However, we need to make sure that
@@ -178,6 +201,36 @@ public final class SparkUtils {
 
         // zipPartitions on coalesced read partitions and intervals, and apply the function f
         return coalescedRdd.zipPartitions(intervalsRdd, f);
+    }
+
+    public static Map<String, Integer> getChromosomeSizes() {
+        Map<String, Integer> chromosomeSizes = new LinkedHashMap<>();
+        chromosomeSizes.put("1", 248956422);
+        chromosomeSizes.put("2", 242193529);
+        chromosomeSizes.put("3", 198295559);
+        chromosomeSizes.put("4", 190214555);
+        chromosomeSizes.put("5", 181538259);
+        chromosomeSizes.put("6", 170805979);
+        chromosomeSizes.put("7", 159345973);
+        chromosomeSizes.put("8", 145138636);
+        chromosomeSizes.put("9", 138394717);
+        chromosomeSizes.put("10", 133797422);
+        chromosomeSizes.put("11", 135086622);
+        chromosomeSizes.put("12", 133275309);
+        chromosomeSizes.put("13", 114364328);
+        chromosomeSizes.put("14", 107043718);
+        chromosomeSizes.put("15", 101991189);
+        chromosomeSizes.put("16", 90338345);
+        chromosomeSizes.put("17", 83257441);
+        chromosomeSizes.put("18", 80373285);
+        chromosomeSizes.put("19", 58617616);
+        chromosomeSizes.put("20", 64444167);
+        chromosomeSizes.put("21", 46709983);
+        chromosomeSizes.put("22", 50818468);
+        chromosomeSizes.put("X", 156040895);
+        chromosomeSizes.put("Y", 57227415);
+        chromosomeSizes.put("M", 16569);
+        return chromosomeSizes;
     }
 
     private static <T> JavaRDD<T> coalesce(JavaRDD<T> rdd, Class<T> cls, PartitionCoalescer partitionCoalescer) {

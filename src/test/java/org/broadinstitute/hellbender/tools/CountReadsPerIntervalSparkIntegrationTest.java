@@ -22,21 +22,6 @@ public final class CountReadsPerIntervalSparkIntegrationTest extends CommandLine
         assertEquals(outNoShuffle, outWithShuffle);
     }
 
-    @Test
-    public void testWithShuffle() throws Exception {
-        final File bam = new File(publicTestDir + "large/CEUTrio.HiSeq.WGS.b37.NA12878.20.21.bam");
-        final File out = File.createTempFile("out", ".txt");
-        final ArgumentsBuilder args = new ArgumentsBuilder();
-        args.add("--input");
-        args.add(bam.getAbsolutePath());
-        args.add("--output");
-        args.add(out.getAbsolutePath());
-        args.add("--shuffle");
-        this.runCommandLine(args.getArgsArray());
-
-        Files.readAllLines(out.toPath(), Charset.forName("UTF-8"));
-    }
-
     public List<String> run(boolean shuffle) throws Exception {
         final File bam = new File(publicTestDir + "large/CEUTrio.HiSeq.WGS.b37.NA12878.20.21.bam");
         final File out = File.createTempFile("out", ".txt");

@@ -48,34 +48,9 @@ public final class CountReadsPerIntervalSpark extends GATKSparkTool {
         final JavaRDD<GATKRead> reads = getReads();
         JavaRDD<GATKRead> mappedReads = reads.filter(read -> !read.isUnmapped());
         final List<Locatable> intervals = new ArrayList<>();
-        Map<String, Integer> chromosomeSizes = new LinkedHashMap<>();
+        Map<String, Integer> chromosomeSizes = SparkUtils.getChromosomeSizes();
         int regionSize = 4000;
         int regionRepeat = 3; // fraction of regions 3 = 1/3 etc
-        chromosomeSizes.put("1", 248956422);
-        chromosomeSizes.put("2", 242193529);
-        chromosomeSizes.put("3", 198295559);
-        chromosomeSizes.put("4", 190214555);
-        chromosomeSizes.put("5", 181538259);
-        chromosomeSizes.put("6", 170805979);
-        chromosomeSizes.put("7", 159345973);
-        chromosomeSizes.put("8", 145138636);
-        chromosomeSizes.put("9", 138394717);
-        chromosomeSizes.put("10", 133797422);
-        chromosomeSizes.put("11", 135086622);
-        chromosomeSizes.put("12", 133275309);
-        chromosomeSizes.put("13", 114364328);
-        chromosomeSizes.put("14", 107043718);
-        chromosomeSizes.put("15", 101991189);
-        chromosomeSizes.put("16", 90338345);
-        chromosomeSizes.put("17", 83257441);
-        chromosomeSizes.put("18", 80373285);
-        chromosomeSizes.put("19", 58617616);
-        chromosomeSizes.put("20", 64444167);
-        chromosomeSizes.put("21", 46709983);
-        chromosomeSizes.put("22", 50818468);
-        chromosomeSizes.put("X", 156040895);
-        chromosomeSizes.put("Y", 57227415);
-        chromosomeSizes.put("M", 16569);
         for (Map.Entry<String, Integer> e : chromosomeSizes.entrySet()) {
             String contig = e.getKey();
             int size = e.getValue();
@@ -130,6 +105,7 @@ public final class CountReadsPerIntervalSpark extends GATKSparkTool {
             OverlapDetector<Locatable> overlapDetector = OverlapDetector.create(intervals);
 
             Map<Locatable, Integer> counts = Maps.newLinkedHashMap();
+            Map<Integer, Integer> lengths = Maps.newLinkedHashMap();
             while (readIterator.hasNext()) {
                 GATKRead read = readIterator.next();
                 Set<Locatable> overlaps = overlapDetector.getOverlaps(read);
@@ -137,7 +113,12 @@ public final class CountReadsPerIntervalSpark extends GATKSparkTool {
                     Integer count = counts.get(overlap);
                     counts.put(overlap, count == null ? 1 : count + 1);
                 }
+
+                Integer count2 = lengths.get(read.getLength());
+                lengths.put(read.getLength(), count2 == null ? 1 : count2 + 1);
             }
+
+            System.out.println("lengths: " + lengths);
             return counts.entrySet().stream()
                     .map(entry -> new Tuple2<>(entry.getKey(), entry.getValue()))
                     .collect(Collectors.toList());
