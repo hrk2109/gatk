@@ -127,18 +127,15 @@ public final class CountReadsPerIntervalSpark extends GATKSparkTool {
         public Iterable<Tuple2<Locatable, Integer>> call(Iterator<GATKRead> readIterator,
                                                          Iterator<Locatable> intervalIterator) {
             List<Locatable> intervals = Lists.newArrayList(intervalIterator);
-            List<OverlapDetector<Locatable>> overlapDetectors = intervals.stream()
-                    .map(interval -> OverlapDetector.create(ImmutableList.of(interval))).collect(Collectors.toList());
+            OverlapDetector<Locatable> overlapDetector = OverlapDetector.create(intervals);
 
             Map<Locatable, Integer> counts = Maps.newLinkedHashMap();
             while (readIterator.hasNext()) {
                 GATKRead read = readIterator.next();
-                for (OverlapDetector<Locatable> overlapDetector : overlapDetectors) {
-                    Set<Locatable> overlaps = overlapDetector.getOverlaps(read);
-                    for (Locatable overlap : overlaps) {
-                        Integer count = counts.get(overlap);
-                        counts.put(overlap, count == null ? 1 : count + 1);
-                    }
+                Set<Locatable> overlaps = overlapDetector.getOverlaps(read);
+                for (Locatable overlap : overlaps) {
+                    Integer count = counts.get(overlap);
+                    counts.put(overlap, count == null ? 1 : count + 1);
                 }
             }
             return counts.entrySet().stream()
