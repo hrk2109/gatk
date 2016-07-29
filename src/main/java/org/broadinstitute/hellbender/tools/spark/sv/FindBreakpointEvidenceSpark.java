@@ -11,6 +11,7 @@ import org.apache.commons.collections4.iterators.SingletonIterator;
 import org.apache.spark.HashPartitioner;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.broadcast.Broadcast;
 import org.broadinstitute.hellbender.cmdline.Argument;
 import org.broadinstitute.hellbender.cmdline.CommandLineProgramProperties;
@@ -347,10 +348,10 @@ public final class FindBreakpointEvidenceSpark extends GATKSparkTool {
     {
         final Set<SVKmer> kmerKillSet = SVUtils.readKmersFile(params.kSize, kmersToIgnoreFile, pipelineOptions);
         log("Ignoring " + kmerKillSet.size() + " genomically common kmers.");
-        final List<SVKmer> kmerKillList = getHighCountKmers(params, goodPrimaryLines, locations, pipelineOptions);
-        log("Ignoring " + kmerKillList.size() + " common kmers in the reads.");
-        kmerKillSet.addAll(kmerKillList);
-        log("Ignoring a total of " + kmerKillSet.size() + " unique common kmers.");
+        //final List<SVKmer> kmerKillList = getHighCountKmers(params, goodPrimaryLines, locations, pipelineOptions);
+        //log("Ignoring " + kmerKillList.size() + " common kmers in the reads.");
+        //kmerKillSet.addAll(kmerKillList);
+        //log("Ignoring a total of " + kmerKillSet.size() + " unique common kmers.");
 
         final HopscotchUniqueMultiMap<SVKmer, Integer, KmerAndInterval> kmerMultiMap =
                 new HopscotchUniqueMultiMap<>(
@@ -431,9 +432,11 @@ public final class FindBreakpointEvidenceSpark extends GATKSparkTool {
         final double minEntropy = params.minEntropy;
         final List<QNameAndInterval> qNames =
             reads
-                .mapPartitions(readItr ->
+                .mapPartitionsToPair(readItr ->
                         new MapPartitioner<>(readItr,
                                 new QNamesForKmersFinder(kSize, minEntropy, broadcastKmerMultiMap.value())), false)
+                .mapPartitions(pairItr ->
+                        new KmerQNameToQNameIntervalMapper(broadcastKmerMultiMap.value()).call(pairItr))
                 .collect();
 
         broadcastKmerMultiMap.destroy();
@@ -1298,13 +1301,10 @@ public final class FindBreakpointEvidenceSpark extends GATKSparkTool {
      * It knows which breakpoint(s) a read belongs to (if any) by kmerizing the read, and looking up each SVKmer in
      * a multi-map of SVKmers onto intervalId.
      */
-    private static final class QNamesForKmersFinder implements Function<GATKRead, Iterator<QNameAndInterval>> {
+    private static final class QNamesForKmersFinder implements Function<GATKRead, Iterator<Tuple2<SVKmer, String>>> {
         private final int kSize;
         private final double minEntropy;
         private final HopscotchUniqueMultiMap<SVKmer, Integer, KmerAndInterval> kmerMultiMap;
-        private final Set<Integer> intervalIdSet = new HashSet<>();
-        private final List<QNameAndInterval> qNameAndIntervalList = new ArrayList<>();
-        private final Iterator<QNameAndInterval> emptyIterator = Collections.emptyIterator();
 
         QNamesForKmersFinder( final int kSize, final double minEntropy,
                               final HopscotchUniqueMultiMap<SVKmer, Integer, KmerAndInterval> kmerMultiMap ) {
@@ -1313,22 +1313,61 @@ public final class FindBreakpointEvidenceSpark extends GATKSparkTool {
             this.kmerMultiMap = kmerMultiMap;
         }
 
-        public Iterator<QNameAndInterval> apply(final GATKRead read) {
-            intervalIdSet.clear();
+        public Iterator<Tuple2<SVKmer, String>> apply( final GATKRead read ) {
+            List<Tuple2<SVKmer, String>> results = new ArrayList<>();
             SVKmerizerWithLowComplexityFilter.stream(read.getBases(), kSize, minEntropy)
                     .map( kmer -> kmer.canonical(kSize) )
                     .forEach( kmer -> {
                         final Iterator<KmerAndInterval> itr = kmerMultiMap.findEach(kmer);
-                        while ( itr.hasNext() ) {
-                            intervalIdSet.add(itr.next().getValue());
-                        }
+                        if ( itr.hasNext() ) results.add(new Tuple2<>(kmer, read.getName()));
                     });
-            if (intervalIdSet.isEmpty()) return emptyIterator;
-            qNameAndIntervalList.clear();
-            final String qName = read.getName();
-            intervalIdSet.forEach(intervalId ->
-                    qNameAndIntervalList.add(new QNameAndInterval(qName, intervalId)));
-            return qNameAndIntervalList.iterator();
+            return results.iterator();
+        }
+    }
+
+    private static final class KmerQNameToQNameIntervalMapper {
+        private final int KMER_MAP_SIZE = 250000;
+        private final int TOO_MANY = 500;
+        private final HopscotchUniqueMultiMap<SVKmer, Integer, KmerAndInterval> kmerMultiMap;
+
+        KmerQNameToQNameIntervalMapper( final HopscotchUniqueMultiMap<SVKmer, Integer, KmerAndInterval> kmerMultiMap ) {
+            this.kmerMultiMap = kmerMultiMap;
+        }
+
+        public Iterable<QNameAndInterval> call( final Iterator<Tuple2<SVKmer, String>> pairItr ) {
+            HopscotchMap<SVKmer, List<String>, Map.Entry<SVKmer, List<String>>> kmerQNamesMap =
+                    new HopscotchMap<>(KMER_MAP_SIZE);
+            while ( pairItr.hasNext() ) {
+                final Tuple2<SVKmer, String> pair = pairItr.next();
+                final SVKmer kmer = pair._1();
+                Map.Entry<SVKmer, List<String>> entry = kmerQNamesMap.find(kmer);
+                if ( entry == null ) {
+                    entry = new AbstractMap.SimpleEntry<>(kmer, new ArrayList<>());
+                    kmerQNamesMap.add(entry);
+                }
+                List<String> qNames = entry.getValue();
+                if ( qNames != null ) {
+                    if (qNames.size() >= TOO_MANY) entry.setValue(null);
+                    else qNames.add(pair._2());
+                }
+            }
+
+            final int qNameCount =
+                    kmerQNamesMap.stream().mapToInt(entry -> entry.getValue()==null ? 0 : entry.getValue().size()).sum();
+            HopscotchSet<QNameAndInterval> qNameAndIntervals = new HopscotchSet<>(qNameCount);
+            for ( Map.Entry<SVKmer, List<String>> entry : kmerQNamesMap ) {
+                final List<String> qNames = entry.getValue();
+                if ( qNames != null ) {
+                    Iterator<KmerAndInterval> intervalItr = kmerMultiMap.findEach(entry.getKey());
+                    while ( intervalItr.hasNext() ) {
+                        final int intervalId = intervalItr.next().getIntervalId();
+                        for ( final String qName : qNames ) {
+                            qNameAndIntervals.add(new QNameAndInterval(qName, intervalId));
+                        }
+                    }
+                }
+            }
+            return qNameAndIntervals;
         }
     }
 
