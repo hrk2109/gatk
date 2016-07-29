@@ -49,7 +49,7 @@ public final class CountReadsPerIntervalSpark extends GATKSparkTool {
         JavaRDD<GATKRead> mappedReads = reads.filter(read -> !read.isUnmapped());
         final List<Locatable> intervals = new ArrayList<>();
         Map<String, Integer> chromosomeSizes = new LinkedHashMap<>();
-        int regionSize = 1000;
+        int regionSize = 4000;
         int regionRepeat = 3; // fraction of regions 3 = 1/3 etc
         chromosomeSizes.put("1", 248956422);
         chromosomeSizes.put("2", 242193529);
