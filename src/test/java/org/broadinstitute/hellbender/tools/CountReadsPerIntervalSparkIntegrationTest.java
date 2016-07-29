@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.AssertJUnit.assertFalse;
 
 public final class CountReadsPerIntervalSparkIntegrationTest extends CommandLineProgramTest {
 
@@ -17,6 +18,7 @@ public final class CountReadsPerIntervalSparkIntegrationTest extends CommandLine
     public void test() throws Exception {
         List<String> outNoShuffle = run(false);
         List<String> outWithShuffle = run(true);
+        assertFalse(outNoShuffle.isEmpty());
         assertEquals(outNoShuffle, outWithShuffle);
     }
 
