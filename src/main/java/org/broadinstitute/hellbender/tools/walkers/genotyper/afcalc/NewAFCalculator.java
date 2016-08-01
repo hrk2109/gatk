@@ -31,16 +31,18 @@ public final class NewAFCalculator extends AFCalculator {
     private final double refPseudocount;
     private final double snpPseudocount;
     private final double indelPseudocount;
+    private final int defaultPloidy;
 
 
-    public NewAFCalculator(final double refPseudocount, final double snpPseudocount, final double indelPseudocount) {
+    public NewAFCalculator(final double refPseudocount, final double snpPseudocount, final double indelPseudocount, final int defaultPloidy) {
         this.refPseudocount = refPseudocount;
         this.snpPseudocount = snpPseudocount;
         this.indelPseudocount = indelPseudocount;
+        this.defaultPloidy = defaultPloidy;
     }
 
     public AFCalculationResult getLog10PNonRef(final VariantContext vc) {
-        return getLog10PNonRef(vc, 0, 0, null);
+        return getLog10PNonRef(vc, defaultPloidy, 0, null);
     }
     //TODO: this should be a class of static methods once the old AFCalculator is gone.
     /**
@@ -64,14 +66,19 @@ public final class NewAFCalculator extends AFCalculator {
 
         final Dirichlet prior = new Dirichlet(priorPseudocounts);
         double[] alleleCounts = new double[numAlleles];
-        double[] log10AlleleFrequencies = new double[numAlleles];
+        final double flatLog10AlleleFrequency = -MathUtils.log10(numAlleles); // log10(1/numAlleles)
+        double[] log10AlleleFrequencies = new IndexRange(0, numAlleles).mapToDouble(n -> flatLog10AlleleFrequency);
         double alleleCountsMaximumDifference = Double.POSITIVE_INFINITY;
 
         while (alleleCountsMaximumDifference > THRESHOLD_FOR_ALLELE_COUNT_CONVERGENCE) {
-            log10AlleleFrequencies = new Dirichlet(prior, alleleCounts).effectiveLog10MultinomialWeights();
             final double[] newAlleleCounts = effectiveAlleleCounts(vc, log10AlleleFrequencies);
             alleleCountsMaximumDifference = Arrays.stream(MathArrays.ebeSubtract(alleleCounts, newAlleleCounts)).map(Math::abs).max().getAsDouble();
             alleleCounts = newAlleleCounts;
+
+            // first iteration uses flat prior in order to avoid local minimum where the prior + no pseudocounts gives such a low
+            // effective allele frequency that it overwhelms the genotype likelihood of a real variant
+            // basically, we want a chance to get non-zero pseudocounts before using a prior that's biased against a variant
+            log10AlleleFrequencies = new Dirichlet(prior, alleleCounts).effectiveLog10MultinomialWeights();
         }
 
         double[] log10POfZeroCountsByAllele = new double[numAlleles];
@@ -81,7 +88,8 @@ public final class NewAFCalculator extends AFCalculator {
             if (!g.hasLikelihoods()) {
                 continue;
             }
-            final GenotypeLikelihoodCalculator glCalc = GL_CALCS.getInstance(g.getPloidy(), numAlleles);
+            final int ploidy = g.getPloidy() == 0 ? defaultPloidy : g.getPloidy();
+            final GenotypeLikelihoodCalculator glCalc = GL_CALCS.getInstance(ploidy, numAlleles);
             final double[] genotypePosteriors = normalizedGenotypePosteriors(g, glCalc, log10AlleleFrequencies);
 
             //the total probability

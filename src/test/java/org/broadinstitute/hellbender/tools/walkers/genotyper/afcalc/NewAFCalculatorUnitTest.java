@@ -35,11 +35,13 @@ public class NewAFCalculatorUnitTest extends BaseTest {
     private static final int FAIRLY_CONFIDENT_PL = 20;
     private static final int LOW_CONFIDENCE_PL = 10;
 
+    private static final int DEFAULT_PLOIDY = 2;
+
     private static int sampleNameCounter = 0;
 
     @Test
     public void testSymmetries() {
-        final NewAFCalculator afCalc = new NewAFCalculator(1, 0.1, 0.1);
+        final NewAFCalculator afCalc = new NewAFCalculator(1, 0.1, 0.1, DEFAULT_PLOIDY);
         final List<Allele> alleles = Arrays.asList(A,B,C);
         final Genotype AA = genotypeWithObviousCall(DIPLOID, TRIALLELIC, new int[] {0,2}, FAIRLY_CONFIDENT_PL);
         final Genotype BB = genotypeWithObviousCall(DIPLOID, TRIALLELIC, new int[] {1,2}, FAIRLY_CONFIDENT_PL);
@@ -72,7 +74,7 @@ public class NewAFCalculatorUnitTest extends BaseTest {
 
     @Test
     public void testMLECounts() {
-        final NewAFCalculator afCalc = new NewAFCalculator(1, 1, 1);
+        final NewAFCalculator afCalc = new NewAFCalculator(1, 1, 1, DEFAULT_PLOIDY);
         final List<Allele> alleles = Arrays.asList(A,B,C);
         final Genotype AA = genotypeWithObviousCall(DIPLOID, TRIALLELIC, new int[] {0,2}, FAIRLY_CONFIDENT_PL);
         final Genotype BB = genotypeWithObviousCall(DIPLOID, TRIALLELIC, new int[] {1,2}, FAIRLY_CONFIDENT_PL);
@@ -108,7 +110,7 @@ public class NewAFCalculatorUnitTest extends BaseTest {
         // prior corresponding to 1000 observations of ref, 1 of a SNP
         // for this test, we want many pseudocounts in the prior because the new AF calculator learns the allele frequency
         // and we don't want the complication of the posterior being differetn from the prior
-        final NewAFCalculator afCalc = new NewAFCalculator(1000, 1, 1);    //prior corresponding to 1000 observations of ref, 1 of a SNP
+        final NewAFCalculator afCalc = new NewAFCalculator(1000, 1, 1, DEFAULT_PLOIDY);    //prior corresponding to 1000 observations of ref, 1 of a SNP
         final List<Allele> alleles = Arrays.asList(A,B);
 
         // for FAIRLY_CONFIDENT_PL = 20, this genotype has about 100 times greater likelihood to be het than hom ref
@@ -130,7 +132,7 @@ public class NewAFCalculatorUnitTest extends BaseTest {
 
     @Test
     public void testApproximateMultiplicativeConfidence() {
-        final NewAFCalculator afCalc = new NewAFCalculator(1, 1, 1);    //flat prior -- we will choose genotypes such that the posterior remains flat
+        final NewAFCalculator afCalc = new NewAFCalculator(1, 1, 1, DEFAULT_PLOIDY);    //flat prior -- we will choose genotypes such that the posterior remains flat
         final List<Allele> alleles = Arrays.asList(A,B);
 
         final Genotype AA = genotypeWithObviousCall(DIPLOID, BIALLELIC, new int[] {0,2}, FAIRLY_CONFIDENT_PL);
