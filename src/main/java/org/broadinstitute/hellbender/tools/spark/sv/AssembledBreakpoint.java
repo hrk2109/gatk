@@ -102,15 +102,13 @@ class AssembledBreakpoint {
 
     public SimpleInterval getLeftAlignedLeftBreakpointOnAssembledContig() {
         final int alignmentEnd = region1.forwardStrand ? region1.referenceInterval.getEnd() : region1.referenceInterval.getStart();
-        //final int position = region1.forwardStrand ? alignmentEnd - homology.length() : alignmentEnd;
-        final int position = region1.forwardStrand ? alignmentEnd - homology.length() : alignmentEnd + homology.length();
+        final int position = region1.forwardStrand ? alignmentEnd - homology.length() : alignmentEnd;
         return new SimpleInterval(region1.referenceInterval.getContig(), position, position);
     }
 
     public SimpleInterval getLeftAlignedRightBreakpointOnAssembledContig() {
         final int alignmentStart = region2.forwardStrand ? region2.referenceInterval.getStart() : region2.referenceInterval.getEnd();
-        //final int position = ! region2.forwardStrand ? alignmentStart : alignmentStart - homology.length();
-        final int position = region2.forwardStrand ? alignmentStart + homology.length() : alignmentStart - homology.length();
+        final int position = ! region2.forwardStrand ? alignmentStart : alignmentStart - homology.length();
         return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
     }
 
