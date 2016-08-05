@@ -101,16 +101,32 @@ class AssembledBreakpoint {
 
     }
 
+    public AlignmentRegion getLeftAlignmentRegion() {
+        if (region1.referenceInterval.getStart() < region2.referenceInterval.getStart()) {
+            return region1;
+        } else {
+            return region2;
+        }
+    }
+
     public SimpleInterval getLeftAlignedLeftBreakpointOnAssembledContig() {
-        final int alignmentEnd = region1.forwardStrand ? region1.referenceInterval.getEnd() : region1.referenceInterval.getStart();
-        final int position = region1.forwardStrand ? alignmentEnd - homology.length() : alignmentEnd;
-        return new SimpleInterval(region1.referenceInterval.getContig(), position, position);
+        if (region1.equals(getLeftAlignmentRegion())) {
+            final int position = region1.forwardStrand ? region1.referenceInterval.getEnd() - homology.length() : region1.referenceInterval.getStart();
+            return new SimpleInterval(region1.referenceInterval.getContig(), position, position);
+        } else {
+            final int position = region2.forwardStrand ? region2.referenceInterval.getStart() + homology.length() : region2.referenceInterval.getEnd() ;
+            return new SimpleInterval(region1.referenceInterval.getContig(), position, position);
+        }
     }
 
     public SimpleInterval getLeftAlignedRightBreakpointOnAssembledContig() {
-        final int alignmentStart = region2.forwardStrand ? region2.referenceInterval.getStart() : region2.referenceInterval.getEnd();
-        final int position = ! region2.forwardStrand ? alignmentStart - homology.length() : alignmentStart;
-        return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
+        if (region1.equals(getLeftAlignmentRegion())) {
+            final int position = region2.forwardStrand ? region2.referenceInterval.getStart() : region2.referenceInterval.getEnd();
+            return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
+        } else {
+            final int position = region1.forwardStrand ? region1.referenceInterval.getEnd() : region1.referenceInterval.getStart();
+            return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
+        }
     }
 
     public BreakpointAllele getBreakpointAllele() {
@@ -118,11 +134,16 @@ class AssembledBreakpoint {
             final SimpleInterval leftAlignedLeftBreakpointOnAssembledContig = getLeftAlignedLeftBreakpointOnAssembledContig();
             final SimpleInterval leftAlignedRightBreakpointOnAssembledContig = getLeftAlignedRightBreakpointOnAssembledContig();
 
-            final boolean isFiveToThreeInversion = region1.forwardStrand && !region2.forwardStrand &&
-                    !region1.referenceInterval.contains(region2.referenceInterval);
+            final boolean isFiveToThreeInversion;
+            final boolean isThreeToFiveInversion;
 
-            final boolean isThreeToFiveInversion = !region1.forwardStrand && region2.forwardStrand
-                    && !region1.referenceInterval.contains(region2.referenceInterval);
+            if (region1.equals(getLeftAlignmentRegion())) {
+                isFiveToThreeInversion = region1.forwardStrand && !region2.forwardStrand;
+                isThreeToFiveInversion = !region1.forwardStrand && region2.forwardStrand;
+            } else {
+                isFiveToThreeInversion = !region1.forwardStrand && region2.forwardStrand;
+                isThreeToFiveInversion = region1.forwardStrand && !region2.forwardStrand;
+            }
 
             if (!leftAlignedLeftBreakpointOnAssembledContig.getContig().equals(leftAlignedRightBreakpointOnAssembledContig.getContig())) {
                 return new BreakpointAllele(leftAlignedLeftBreakpointOnAssembledContig, leftAlignedRightBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
