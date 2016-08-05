@@ -114,17 +114,17 @@ class AssembledBreakpoint {
             final int position = region1.forwardStrand ? region1.referenceInterval.getEnd() - homology.length() : region1.referenceInterval.getStart();
             return new SimpleInterval(region1.referenceInterval.getContig(), position, position);
         } else {
-            final int position = region2.forwardStrand ? region2.referenceInterval.getStart() + homology.length() : region2.referenceInterval.getEnd() ;
+            final int position = region2.forwardStrand ? region2.referenceInterval.getStart() : region2.referenceInterval.getEnd() - homology.length();
             return new SimpleInterval(region1.referenceInterval.getContig(), position, position);
         }
     }
 
     public SimpleInterval getLeftAlignedRightBreakpointOnAssembledContig() {
         if (region1.equals(getLeftAlignmentRegion())) {
-            final int position = region2.forwardStrand ? region2.referenceInterval.getStart() : region2.referenceInterval.getEnd();
+            final int position = region2.forwardStrand ? region2.referenceInterval.getStart() + homology.length() : region2.referenceInterval.getEnd();
             return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
         } else {
-            final int position = region1.forwardStrand ? region1.referenceInterval.getEnd() : region1.referenceInterval.getStart();
+            final int position = region1.forwardStrand ? region1.referenceInterval.getEnd() - homology.length() : region1.referenceInterval.getStart();
             return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
         }
     }
