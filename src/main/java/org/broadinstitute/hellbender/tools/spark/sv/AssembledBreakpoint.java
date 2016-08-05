@@ -2,6 +2,7 @@ package org.broadinstitute.hellbender.tools.spark.sv;
 
 import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
+import org.omg.SendingContext.RunTime;
 
 import java.util.Arrays;
 import java.util.List;
@@ -108,26 +109,31 @@ class AssembledBreakpoint {
 
     public SimpleInterval getLeftAlignedRightBreakpointOnAssembledContig() {
         final int alignmentStart = region2.forwardStrand ? region2.referenceInterval.getStart() : region2.referenceInterval.getEnd();
-        final int position = ! region2.forwardStrand ? alignmentStart : alignmentStart - homology.length();
+        final int position = ! region2.forwardStrand ? alignmentStart - homology.length() : alignmentStart;
         return new SimpleInterval(region2.referenceInterval.getContig(), position, position);
     }
 
     public BreakpointAllele getBreakpointAllele() {
-        final SimpleInterval leftAlignedLeftBreakpointOnAssembledContig = getLeftAlignedLeftBreakpointOnAssembledContig();
-        final SimpleInterval leftAlignedRightBreakpointOnAssembledContig = getLeftAlignedRightBreakpointOnAssembledContig();
+        try {
+            final SimpleInterval leftAlignedLeftBreakpointOnAssembledContig = getLeftAlignedLeftBreakpointOnAssembledContig();
+            final SimpleInterval leftAlignedRightBreakpointOnAssembledContig = getLeftAlignedRightBreakpointOnAssembledContig();
 
-        final boolean isFiveToThreeInversion = region1.forwardStrand && ! region2.forwardStrand &&
-                ! region1.referenceInterval.contains(region2.referenceInterval);
+            final boolean isFiveToThreeInversion = region1.forwardStrand && !region2.forwardStrand &&
+                    !region1.referenceInterval.contains(region2.referenceInterval);
 
-        final boolean isThreeToFiveInversion = ! region1.forwardStrand && region2.forwardStrand
-                && ! region1.referenceInterval.contains(region2.referenceInterval);
+            final boolean isThreeToFiveInversion = !region1.forwardStrand && region2.forwardStrand
+                    && !region1.referenceInterval.contains(region2.referenceInterval);
 
-        if (! leftAlignedLeftBreakpointOnAssembledContig.getContig().equals(leftAlignedRightBreakpointOnAssembledContig.getContig())) {
-            return new BreakpointAllele(leftAlignedLeftBreakpointOnAssembledContig, leftAlignedRightBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
-        } else if ( leftAlignedLeftBreakpointOnAssembledContig.getStart() < leftAlignedRightBreakpointOnAssembledContig.getStart()) {
-            return new BreakpointAllele(leftAlignedLeftBreakpointOnAssembledContig, leftAlignedRightBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
-        } else {
-            return new BreakpointAllele(leftAlignedRightBreakpointOnAssembledContig, leftAlignedLeftBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
+            if (!leftAlignedLeftBreakpointOnAssembledContig.getContig().equals(leftAlignedRightBreakpointOnAssembledContig.getContig())) {
+                return new BreakpointAllele(leftAlignedLeftBreakpointOnAssembledContig, leftAlignedRightBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
+            } else if (leftAlignedLeftBreakpointOnAssembledContig.getStart() < leftAlignedRightBreakpointOnAssembledContig.getStart()) {
+                return new BreakpointAllele(leftAlignedLeftBreakpointOnAssembledContig, leftAlignedRightBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
+            } else {
+                return new BreakpointAllele(leftAlignedRightBreakpointOnAssembledContig, leftAlignedLeftBreakpointOnAssembledContig, insertedSequence, homology, isFiveToThreeInversion, isThreeToFiveInversion);
+            }
+        } catch (RuntimeException e) {
+            System.err.println("Error constructing breakpoint allele for AB:\n" + this.toString());
+            throw e;
         }
     }
 }
