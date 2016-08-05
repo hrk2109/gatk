@@ -124,7 +124,8 @@ public class CallVariantsFromAlignedContigsSpark extends GATKSparkTool {
 
         sortedVariantsList.sort((VariantContext v1, VariantContext v2) -> IntervalUtils.compareLocatables(v1, v2, referenceSequenceDictionary));
 
-            final VCFHeader header = getVcfHeader(referenceSequenceDictionary);
+        logger.info("Called " + variants.size() + " inversions");
+        final VCFHeader header = getVcfHeader(referenceSequenceDictionary);
 
         writeVariants(outputPath, sortedVariantsList, pipelineOptions, "inversions.vcf", header, referenceSequenceDictionary);
     }
