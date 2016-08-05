@@ -1,9 +1,6 @@
 package org.broadinstitute.hellbender.tools.spark.sv;
 
-import org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.AlignmentRegion;
 import org.testng.annotations.Test;
-
-import static org.testng.Assert.*;
 
 public class AssembledBreakpointTest {
     @Test

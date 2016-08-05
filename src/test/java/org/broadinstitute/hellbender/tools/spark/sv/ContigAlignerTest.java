@@ -12,8 +12,6 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.AlignmentRegion;
-
 public class ContigAlignerTest extends BaseTest {
 
     public static final String LONG_CONTIG1 = "TTTTTTTTTTTTTTTCTGAGACCGAATCTCGCTCTGTCACCCAGGCTGGAGTGCAGTGGCACGATCTTGGCTTACTGCAAGCTCTGCCTCCTGGGTTCATGCCATTCTCCTGCCTCAGCCCCACCCCCCCACCCCCCCAGGTAGCTG" +

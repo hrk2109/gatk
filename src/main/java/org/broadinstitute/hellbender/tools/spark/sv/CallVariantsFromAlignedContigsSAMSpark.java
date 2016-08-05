@@ -17,14 +17,11 @@ import org.broadinstitute.hellbender.engine.filters.ReadFilter;
 import org.broadinstitute.hellbender.engine.filters.ReadFilterLibrary;
 import org.broadinstitute.hellbender.engine.spark.GATKSparkTool;
 import org.broadinstitute.hellbender.exceptions.GATKException;
-import org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.AlignmentRegion;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import scala.Tuple2;
 
 import java.util.List;
 import java.util.Optional;
-
-import static org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.BreakpointAllele;
 
 @CommandLineProgramProperties(summary="Parse SAM records and call SVs",
         oneLineSummary="Parse SAM records and call SVs",

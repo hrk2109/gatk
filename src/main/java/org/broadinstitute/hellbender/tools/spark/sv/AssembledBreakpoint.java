@@ -1,7 +1,6 @@
 package org.broadinstitute.hellbender.tools.spark.sv;
 
 import org.broadinstitute.hellbender.exceptions.GATKException;
-import org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.BreakpointAllele;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 
 import java.util.Arrays;
@@ -48,13 +47,13 @@ import java.util.List;
  */
 class AssembledBreakpoint {
     String contigId;
-    ContigAligner.AlignmentRegion region1;
-    ContigAligner.AlignmentRegion region2;
+    AlignmentRegion region1;
+    AlignmentRegion region2;
     String insertedSequence;
     String homology;
     List<String> insertionMappings;
 
-    public AssembledBreakpoint(final String contigId, final ContigAligner.AlignmentRegion region1, final ContigAligner.AlignmentRegion region2, final String insertedSequence, final String homology, final List<String> insertionMappings) {
+    public AssembledBreakpoint(final String contigId, final AlignmentRegion region1, final AlignmentRegion region2, final String insertedSequence, final String homology, final List<String> insertionMappings) {
         this.contigId = contigId;
         this.region1 = region1;
         this.region2 = region2;
@@ -88,9 +87,9 @@ class AssembledBreakpoint {
         try {
             final String contigId = fields[0].replaceFirst("^>","");
             final String[] alignmentRegion1Fields = Arrays.copyOfRange(fields, 1, 10);
-            final ContigAligner.AlignmentRegion alignmentRegion1 = ContigAligner.AlignmentRegion.fromString(alignmentRegion1Fields);
+            final AlignmentRegion alignmentRegion1 = AlignmentRegion.fromString(alignmentRegion1Fields);
             final String[] alignmentRegion2Fields = Arrays.copyOfRange(fields, 10, 19);
-            final ContigAligner.AlignmentRegion alignmentRegion2 = ContigAligner.AlignmentRegion.fromString(alignmentRegion2Fields);
+            final AlignmentRegion alignmentRegion2 = AlignmentRegion.fromString(alignmentRegion2Fields);
             final String insertedSequence = fields[19].equals("NA") ? "" : fields[19];
             final String homology = fields[20].equals("NA") ? "" : fields[20];
             final List<String> insertionMappings = Arrays.asList(fields[21].split(";"));

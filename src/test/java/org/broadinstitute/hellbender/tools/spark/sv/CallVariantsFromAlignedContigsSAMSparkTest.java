@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.AlignmentRegion;
 import static org.testng.Assert.assertEquals;
 
 public class CallVariantsFromAlignedContigsSAMSparkTest extends BaseTest {

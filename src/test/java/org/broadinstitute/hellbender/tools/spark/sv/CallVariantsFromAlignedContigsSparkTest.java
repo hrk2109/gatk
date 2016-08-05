@@ -1,8 +1,6 @@
 package org.broadinstitute.hellbender.tools.spark.sv;
 
 import htsjdk.samtools.TextCigarCodec;
-import org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.AlignmentRegion;
-import org.broadinstitute.hellbender.tools.spark.sv.ContigAligner.BreakpointAllele;
 import org.broadinstitute.hellbender.utils.SimpleInterval;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
