@@ -124,14 +124,9 @@ public class CallVariantsFromAlignedContigsSpark extends GATKSparkTool {
 
         sortedVariantsList.sort((VariantContext v1, VariantContext v2) -> IntervalUtils.compareLocatables(v1, v2, referenceSequenceDictionary));
 
-        logger.info("Called " + variants.size() + " candidate inversions");
-        final VCFHeader header = getVcfHeader(referenceSequenceDictionary);
+            final VCFHeader header = getVcfHeader(referenceSequenceDictionary);
 
         writeVariants(outputPath, sortedVariantsList, pipelineOptions, "inversions.vcf", header, referenceSequenceDictionary);
-
-        final List<VariantContext> hqmappingVariants = sortedVariantsList.stream().filter(v -> v.getAttributeAsInt(GATKSVVCFHeaderLines.HQ_MAPPINGS, 0) > 0).collect(Collectors.toList());
-        logger.info("Called " + hqmappingVariants.size() + " high-quality inversions");
-        writeVariants(outputPath, hqmappingVariants, pipelineOptions, "hq_inversions.vcf", header, referenceSequenceDictionary);
     }
 
     private static VCFHeader getVcfHeader(final SAMSequenceDictionary referenceSequenceDictionary) {
