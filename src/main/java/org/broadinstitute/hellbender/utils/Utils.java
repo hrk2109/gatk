@@ -264,46 +264,6 @@ public final class Utils {
     }
 
     /**
-     * Splits a String using indexOf instead of regex to speed things up.
-     *
-     * @param str the string to split.
-     * @param delimiter the delimiter used to split the string.
-     * @return an array of tokens.
-     */
-    public static List<String> split(final String str, final String delimiter) {
-        Utils.nonNull(str, "the string to split cannot be null");
-        Utils.nonNull(delimiter, "the delimiter used to split the string cannot be null");
-        return split(str, delimiter, 10);
-    }
-
-    /**
-     * Splits a String using indexOf instead of regex to speed things up.
-     *
-     * @param str the string to split.
-     * @param delimiter the delimiter used to split the string.
-     * @param expectedNumTokens The number of tokens expected. This is used to initialize the ArrayList.
-     * @return an array of tokens.
-     */
-    private static List<String> split(final String str, final String delimiter, final int expectedNumTokens) {
-        Utils.nonNull(str, "the string to split cannot be null");
-        Utils.nonNull(delimiter, "the delimiter used to split the string cannot be null");
-        if ( expectedNumTokens <= 0 ) {
-            throw new IllegalArgumentException("the number of expected tokens must be less and or equal to zero.");
-        }
-        final ArrayList<String> result =  new ArrayList<String>(expectedNumTokens);
-
-        int delimiterIdx = -1;
-        do {
-            final int tokenStartIdx = delimiterIdx + 1;
-            delimiterIdx = str.indexOf(delimiter, tokenStartIdx);
-            final String token = (delimiterIdx != -1 ? str.substring(tokenStartIdx, delimiterIdx) : str.substring(tokenStartIdx) );
-            result.add(token);
-        } while( delimiterIdx != -1 );
-
-        return result;
-    }
-
-    /**
      * Returns a {@link List List&lt;Integer&gt;} representation of an primitive int array.
      * @param values the primitive int array to represent.
      * @return never code {@code null}. The returned list will be unmodifiable yet it will reflect changes in values in the original array yet
