@@ -1,6 +1,7 @@
 package org.broadinstitute.hellbender.engine;
 
 import htsjdk.samtools.SAMSequenceDictionary;
+import htsjdk.samtools.SAMSequenceRecord;
 import htsjdk.variant.variantcontext.VariantContext;
 import htsjdk.variant.vcf.VCFHeader;
 import org.broadinstitute.hellbender.cmdline.Argument;
@@ -57,7 +58,18 @@ public abstract class VariantWalker extends GATKTool {
     public final SAMSequenceDictionary getBestAvailableSequenceDictionary() {
         final SAMSequenceDictionary dictFromDrivingVariants = drivingVariants.getSequenceDictionary();
         if (dictFromDrivingVariants != null){
-            return dictFromDrivingVariants;
+            //If this dictionary looks like it was synthesized from a feature index, see if there is
+            //a better dictionary available from another source (i.e., the reference)
+            final boolean isSyntheticDictionary = dictFromDrivingVariants
+                    .getSequences()
+                    .stream()
+                    .allMatch(seqRec -> seqRec.getSequenceLength() == SAMSequenceRecord.UNKNOWN_SEQUENCE_LENGTH);
+            if (isSyntheticDictionary) {
+                final SAMSequenceDictionary otherDictionary = super.getBestAvailableSequenceDictionary();
+                return otherDictionary != null ? otherDictionary : dictFromDrivingVariants;
+            } else {
+                return dictFromDrivingVariants;
+            }
         }
         return super.getBestAvailableSequenceDictionary();
     }

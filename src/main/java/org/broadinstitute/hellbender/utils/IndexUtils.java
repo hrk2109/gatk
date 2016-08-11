@@ -89,6 +89,12 @@ public final class IndexUtils {
      */
     public static SAMSequenceDictionary createSequenceDictionaryFromFeatureIndex(final File featureFile) {
         Utils.nonNull(featureFile);
+        logger.warn(
+                String.format(
+                    "Feature file \"%s\" appears to contain no sequence dictionary. " +
+                    "Attempting to retrieve a sequence dictionary from the associated index file",
+                    featureFile.getAbsolutePath())
+        );
         final Index index = loadIndex(featureFile);
         return index == null ? null : getSamSequenceDictionaryFromIndex(index);
     }
