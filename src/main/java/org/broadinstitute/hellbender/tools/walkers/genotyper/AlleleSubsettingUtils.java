@@ -117,9 +117,7 @@ public final class AlleleSubsettingUtils {
      * @param sacIndicesToUse the indices in the SAC to use given the allelesToUse (@see #determineSACIndicesToUse())
      * @return subset of SACs from the original genotype, the original SACs if sacIndicesToUse is null
      */
-    public static int[] makeNewSACs(final Genotype g, final List<Integer> sacIndicesToUse) {
-
-        Utils.nonNull(g, "Genotype is null");
+    private static int[] makeNewSACs(final Genotype g, final List<Integer> sacIndicesToUse) {
 
         final int[] oldSACs  = getSACs(g);
 
@@ -144,14 +142,13 @@ public final class AlleleSubsettingUtils {
      */
     private static int[] getSACs(final Genotype g) {
 
-        Utils.nonNull(g, "Genotype is null");
         if ( !g.hasExtendedAttribute(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY) )
             throw new IllegalArgumentException("Genotype must have SAC");
 
         if ( g.getExtendedAttributes().get(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY).getClass().equals(String.class) ) {
             final String SACsString = (String) g.getExtendedAttributes().get(GATKVCFConstants.STRAND_COUNT_BY_SAMPLE_KEY);
-            ArrayList<String> stringSACs = Utils.split(SACsString, ",");
-            final int[] intSACs = new int[stringSACs.size()];
+            String[] stringSACs = SACsString.split(",");
+            final int[] intSACs = new int[stringSACs.length];
             int i = 0;
             for (String sac : stringSACs)
                 intSACs[i++] = Integer.parseInt(sac);
@@ -171,10 +168,7 @@ public final class AlleleSubsettingUtils {
      * @param allelesToUse the subset of alleles to use
      * @return a list of SAC indices to use or null if none
      */
-    public static List<Integer> determineSACIndicesToUse(final List<Allele> originalAlleles, final List<Allele> allelesToUse) {
-
-        Utils.nonNull(originalAlleles, "Original alleles is null");
-        Utils.nonNull(allelesToUse, "Alleles to use is null");
+    private static List<Integer> determineSACIndicesToUse(final List<Allele> originalAlleles, final List<Allele> allelesToUse) {
 
         // the bitset representing the allele indices we want to keep
         final BitSet alleleIndicesToUse = getAlleleIndexBitset(originalAlleles, allelesToUse);
@@ -196,11 +190,11 @@ public final class AlleleSubsettingUtils {
      * @param allelesToKeep   the list of alleles to keep
      * @return non-null bitset
      */
-    public static BitSet getAlleleIndexBitset(final List<Allele> originalAlleles, final List<Allele> allelesToKeep) {
+    private static BitSet getAlleleIndexBitset(final List<Allele> originalAlleles, final List<Allele> allelesToKeep) {
         final int numOriginalAlleles = originalAlleles.size();
         final BitSet alleleIndicesToKeep = new BitSet(numOriginalAlleles);
 
-        // the reference Allele is still used
+        // the reference allele is still used
         alleleIndicesToKeep.set(0);
         for ( int i = 0; i < numOriginalAlleles; i++ ) {
             if ( originalAlleles.get(i).isNonReference() ) {
@@ -221,7 +215,6 @@ public final class AlleleSubsettingUtils {
      */
     private static List<Integer> getSACIndices(final BitSet alleleIndicesToUse) {
 
-        Utils.nonNull(alleleIndicesToUse, "Alleles to use is null");
         if (alleleIndicesToUse.isEmpty()) throw new IllegalArgumentException("cannot have no alleles to use");
 
         final List<Integer> result = new ArrayList<>(NUM_OF_STRANDS * alleleIndicesToUse.size());

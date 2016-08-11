@@ -1,17 +1,13 @@
 package org.broadinstitute.hellbender.tools.walkers.genotyper.afcalc;
 
 import htsjdk.variant.variantcontext.*;
-import org.broadinstitute.hellbender.tools.walkers.genotyper.VariantCallContext;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
 import org.testng.Assert;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
 
 public final class GeneralPloidyAFCalculationModelUnitTest extends BaseTest {
 
@@ -130,7 +126,7 @@ public final class GeneralPloidyAFCalculationModelUnitTest extends BaseTest {
 
     @Test(dataProvider = "getGLs")
     public void testGLs(GetGLsTest cfg) {
-        final int len = GeneralPloidyExactAFCalculator.getNumLikelihoodElements(1 + cfg.numAltAlleles, cfg.ploidy * cfg.GLs.size());
+        final int len = GenotypeLikelihoods.numLikelihoods(1 + cfg.numAltAlleles, cfg.ploidy * cfg.GLs.size());
         double[] priors = new double[len];  // flat priors
 
         final GeneralPloidyExactAFCalculator calc = new GeneralPloidyExactAFCalculator();
@@ -144,21 +140,4 @@ public final class GeneralPloidyAFCalculationModelUnitTest extends BaseTest {
         }
     }
 
-    @Test
-    public void testSubsetGenotypeAlleles() {
-        final GeneralPloidyExactAFCalculator calc = new GeneralPloidyExactAFCalculator();
-        final double[] genotypeLikelihoods1 = {30,0,190,150,170,500};
-        final Genotype g = new GenotypeBuilder().PL(genotypeLikelihoods1).make();
-        final List<Allele> allelesToUse = Arrays.asList(Allele.create("A", true), Allele.create("ACG", false), Allele.create("G", false));
-        final String source = "source";
-        final String contig = "1";
-        final long start = 1;
-        final long stop = 1;
-        List<Allele> alleles = Arrays.asList(Allele.create("A", true), Allele.create("ACG", false), Allele.create("G", false));
-        final VariantContext vc = new VariantContextBuilder(source, contig, start, stop, alleles).make();
-        final boolean assignGenotypes = true;
-        final int defaultPloidy = 2;
-        Genotype newGenotype = calc.subsetGenotypeAlleles(g, allelesToUse, vc, defaultPloidy, assignGenotypes);
-        System.out.println(newGenotype.toString());
-    }
 }
