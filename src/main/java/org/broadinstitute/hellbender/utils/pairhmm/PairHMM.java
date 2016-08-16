@@ -337,7 +337,7 @@ public abstract class PairHMM implements Closeable{
     }
 
     /**
-     * Called at the end of the program to close files, print profiling information etc 
+     * Called at the end of the program to flush files, print profiling information etc
      */
     @Override
     public void close() {

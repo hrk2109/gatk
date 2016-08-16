@@ -180,7 +180,7 @@ public final class IntervalUtils {
      * 'all' can be supplied to indicate all possible intervals, but 'all' must be exclusive of all other interval
      * specifications.
      *
-     * @param parser Genome loc parser.
+     * @param parser Genome unclippedLoc parser.
      * @param argList A list of strings containing interval data.
      * @return an unsorted, unmerged representation of the given intervals.  Null is used to indicate that all intervals should be used.
      */
@@ -386,7 +386,7 @@ public final class IntervalUtils {
      * all overlapping and abutting intervals into an interval that spans the union of all covered bases, and
      * OVERLAPPING_ONLY, which unions overlapping intervals but keeps abutting intervals separate.
      *
-     * @param parser Genome loc parser for the intervals.
+     * @param parser Genome unclippedLoc parser for the intervals.
      * @param intervals A collection of intervals to merge.
      * @param mergingRule A descriptor for the type of merging to perform.
      * @return A sorted, merged version of the intervals passed in.
@@ -639,7 +639,7 @@ public final class IntervalUtils {
         Utils.nonNull(fileHeader, "fileHeader is null");
         Utils.nonNull(splits, "splits is null");
         Utils.nonNull(scatterParts, "scatterParts is null");
-        Utils.containsNoNull(splits, "null split loc");
+        Utils.containsNoNull(splits, "null split unclippedLoc");
 
         if (splits.size() != scatterParts.size()) {
             throw new UserException.BadArgumentValue("splits", String.format("Split points %d does not equal the number of scatter parts %d.", splits.size(), scatterParts.size()));
@@ -824,7 +824,7 @@ public final class IntervalUtils {
     /**
      * Converts a GenomeLoc to a picard interval.
      * @param loc The GenomeLoc.
-     * @param locIndex The loc index for use in the file.
+     * @param locIndex The unclippedLoc index for use in the file.
      * @return The picard interval.
      */
     private static Interval toInterval(final GenomeLoc loc, final int locIndex) {
@@ -834,7 +834,7 @@ public final class IntervalUtils {
     /**
      * merge a list of genome locs that may be overlapping, returning the list of unique genomic locations
      *
-     * @param raw the unchecked genome loc list
+     * @param raw the unchecked genome unclippedLoc list
      * @param rule the merging rule we're using
      *
      * @return the list of merged locations
@@ -872,9 +872,9 @@ public final class IntervalUtils {
 
     /**
      * Returns a list of intervals between the passed int locs. Does not extend UNMAPPED locs.
-     * @param parser A genome loc parser for creating the new intervals
+     * @param parser A genome unclippedLoc parser for creating the new intervals
      * @param locs Original genome locs
-     * @param basePairs Number of base pairs on each side of loc
+     * @param basePairs Number of base pairs on each side of unclippedLoc
      * @return The list of intervals between the locs
      */
     public static List<GenomeLoc> getIntervalsWithFlanks(final GenomeLocParser parser, final List<GenomeLoc> locs, final int basePairs) {
@@ -924,7 +924,7 @@ public final class IntervalUtils {
      * @return never {@code null}. The result is an unmodifiable list.
      */
     public static List<GenomeLoc> genomeLocsFromLocatables(final GenomeLocParser parser, final Collection<? extends Locatable> locatables) {
-        Utils.nonNull(parser, "the input genome-loc parser cannot be null");
+        Utils.nonNull(parser, "the input genome-unclippedLoc parser cannot be null");
 
         Utils.nonNull(locatables, "the input locatable collection cannot be null");
         Utils.containsNoNull(locatables, "some element in the locatable input collection is null");

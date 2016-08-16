@@ -162,7 +162,7 @@ public final class SamToFastq extends PicardCommandLineProgram {
 
         CloserUtil.close(reader);
 
-        // Close all the fastq writers being careful to close each one only once!
+        // Close all the fastq writers being careful to flush each one only once!
         for (final FastqWriters writerMapping : new HashSet<>(writers.values())) {
             writerMapping.closeAll();
         }

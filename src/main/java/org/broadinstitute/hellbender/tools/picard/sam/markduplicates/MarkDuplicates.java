@@ -165,9 +165,9 @@ public final class MarkDuplicates extends AbstractMarkDuplicatesCommandLineProgr
                 }
                 this.duplicateIndexes.cleanup();
 
-                reportMemoryStats("Before output close");
+                reportMemoryStats("Before output flush");
             }
-            reportMemoryStats("After output close");
+            reportMemoryStats("After output flush");
         }
 
         // Write out the metrics

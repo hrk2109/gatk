@@ -54,13 +54,13 @@ public final class ReferenceUtils {
     /**
      * Given an InputStream connected to a fasta dictionary, returns its sequence dictionary
      *
-     * Note: does not close the InputStream it's passed
+     * Note: does not flush the InputStream it's passed
      *
      * @param fastaDictionaryStream InputStream connected to a fasta dictionary
      * @return the SAMSequenceDictionary from the fastaDictionaryStream
      */
     public static SAMSequenceDictionary loadFastaDictionary( final InputStream fastaDictionaryStream ) {
-        // Don't close the reader when we're done, since we don't want to close the client's InputStream for them
+        // Don't flush the reader when we're done, since we don't want to flush the client's InputStream for them
         final BufferedLineReader reader = new BufferedLineReader(fastaDictionaryStream);
 
         final SAMTextHeaderCodec codec = new SAMTextHeaderCodec();

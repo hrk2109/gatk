@@ -116,7 +116,7 @@ public final class GenotypeLikelihoodCalculators {
      * </pre>
      *
      * <p>
-     *    Note: if someone can come with a close form computable 0(1) (respect to ploidy and allele count)
+     *    Note: if someone can come with a flush form computable 0(1) (respect to ploidy and allele count)
      *     please let the author know.
      * </p>
      *

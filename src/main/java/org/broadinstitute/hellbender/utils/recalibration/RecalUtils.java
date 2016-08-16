@@ -71,7 +71,7 @@ public final class RecalUtils {
      * <p/>
      * A header is always printed into the output stream (or file) when the printer is created. Then you only need
      * to call {@link #print(RecalibrationReport, String) print} for each report you want to include in the csv file.
-     * Once finished, you close the printer calling {@link #close() close}
+     * Once finished, you flush the printer calling {@link #close() flush}
      *
      */
     private static class CsvPrinter {

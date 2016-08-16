@@ -200,7 +200,7 @@ public final class ProcessController {
                 process.getOutputStream().close();
                 process.waitFor();
             } catch (IOException e) {
-                throw new GATKException("Unable to close stdin on command: " + StringUtils.join(builder.command(), " "), e);
+                throw new GATKException("Unable to flush stdin on command: " + StringUtils.join(builder.command(), " "), e);
             } catch (InterruptedException e) {
                 throw new GATKException("Process interrupted", e);
             } finally {

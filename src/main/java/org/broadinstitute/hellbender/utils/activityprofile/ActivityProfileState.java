@@ -60,7 +60,7 @@ public final class ActivityProfileState {
     }
 
     /**
-     * Create a new ActivityProfileState at loc with probability of being active of activeProb
+     * Create a new ActivityProfileState at unclippedLoc with probability of being active of activeProb
      *
      * @param loc the position of the result profile (for debugging purposes)
      * @param activeProb the probability of being active (between 0 and 1)
@@ -70,7 +70,7 @@ public final class ActivityProfileState {
     }
 
     /**
-     * Create a new ActivityProfileState at loc with probability of being active of activeProb that maintains some
+     * Create a new ActivityProfileState at unclippedLoc with probability of being active of activeProb that maintains some
      * information about the result state and value
      *
      * The only state value in use is HIGH_QUALITY_SOFT_CLIPS, and here the value is interpreted as the number
@@ -114,7 +114,7 @@ public final class ActivityProfileState {
     @Override
     public String toString() {
         return "ActivityProfileState{" +
-                "loc=" + loc +
+                "unclippedLoc=" + loc +
                 ", activeProb=" + activeProb +
                 ", resultState=" + resultState +
                 ", resultValue=" + resultValue +

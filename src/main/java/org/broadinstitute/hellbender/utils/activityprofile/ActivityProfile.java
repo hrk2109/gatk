@@ -177,7 +177,7 @@ public class ActivityProfile {
             contigLength = samHeader.getSequence(regionStartLoc.getContig()).getSequenceLength();
         } else {
             Utils.validateArg( regionStopLoc.getStart() == loc.getStart() - 1, () ->
-                    "Bad add call to ActivityProfile: loc " + loc + " not immediately after last loc " + regionStopLoc);
+                    "Bad add call to ActivityProfile: unclippedLoc " + loc + " not immediately after last unclippedLoc " + regionStopLoc);
             regionStopLoc = loc;
         }
 
@@ -274,7 +274,7 @@ public class ActivityProfile {
      * @param minRegionSize the minimum region size, in the case where we have to cut up regions that are too large
      * @param maxRegionSize the maximize size of the returned region
      * @param forceConversion if true, we'll return a region whose end isn't sufficiently far from the end of the
-     *                        stateList.  Used to close out the active region when we've hit some kind of end (such
+     *                        stateList.  Used to flush out the active region when we've hit some kind of end (such
      *                        as the end of the contig)
      * @return a non-null list of active regions
      */
@@ -312,7 +312,7 @@ public class ActivityProfile {
      * @param minRegionSize the minimum region size, in the case where we have to cut up regions that are too large
      * @param maxRegionSize the maximize size of the returned region
      * @param forceConversion if true, we'll return a region whose end isn't sufficiently far from the end of the
-     *                        stateList.  Used to close out the active region when we've hit some kind of end (such
+     *                        stateList.  Used to flush out the active region when we've hit some kind of end (such
      *                        as the end of the contig)
      * @return a fully formed assembly region, or null if none can be made
      */
@@ -366,7 +366,7 @@ public class ActivityProfile {
      * @param minRegionSize the minimum region size, in the case where we have to cut up regions that are too large
      * @param maxRegionSize the maximize size of the returned region
      * @param forceConversion if true, we'll return a region whose end isn't sufficiently far from the end of the
-     *                        stateList.  Used to close out the assembly region when we've hit some kind of end (such
+     *                        stateList.  Used to flush out the assembly region when we've hit some kind of end (such
      *                        as the end of the contig)
      * @return the index into stateList of the last element of this region, or -1 if it cannot be found
      */

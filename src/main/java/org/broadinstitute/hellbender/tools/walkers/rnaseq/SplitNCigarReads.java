@@ -44,8 +44,12 @@ import static org.broadinstitute.hellbender.cmdline.StandardArgumentDefinitions.
 )
 public final class SplitNCigarReads extends TwoPassReadWalker {
 
+    // A list of tags that break upon splitting on N. These will be removed from reads in the output.
+    static final String[] TAGS_TO_REMOVE = {"NM","MD","NH"};
+    static final String MATE_CIGAR_TAG = "MC";
+
     @Argument(fullName = OUTPUT_LONG_NAME, shortName = OUTPUT_SHORT_NAME, doc="Write output to this BAM filename instead of STDOUT")
-    protected File OUTPUT;
+    File OUTPUT;
 
     /**
      * This flag tells GATK to refactor cigar string with NDN elements to one element. It intended primarily for use in
@@ -53,7 +57,7 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
      * You should only use this if you know that your reads have that problem.
      */
     @Argument(fullName = "refactor_NDN_cigar_string", shortName = "fixNDN", doc = "refactor cigar string with NDN elements to one element", optional = true)
-    public boolean REFACTOR_NDN_CIGAR_READS = false;
+    boolean REFACTOR_NDN_CIGAR_READS = false;
 
     /**
      * For expert users only!  To minimize memory consumption you can lower this number, but then the tool may skip
@@ -61,7 +65,7 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
      * enough with the default value.
      */
     @Argument(fullName="maxReadsInMemory", shortName="maxInMemory", doc="max reads allowed to be kept in memory at a time by the BAM writer", optional=true)
-    protected int MAX_RECORDS_IN_MEMORY = 150000;
+    int MAX_RECORDS_IN_MEMORY = 150000;
 
     /**
      * If there are more than this many mismatches within the overhang regions, the whole overhang will get hard-clipped out.
@@ -69,19 +73,19 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
      * value, e.g. if most of the overhang mismatches.
      */
     @Argument(fullName="maxMismatchesInOverhang", shortName="maxMismatches", doc="max number of mismatches allowed in the overhang", optional=true)
-    protected int MAX_MISMATCHES_IN_OVERHANG = 1;
+    int MAX_MISMATCHES_IN_OVERHANG = 1;
 
     /**
      * If there are more than this many bases in the overhang, we won't try to hard-clip them out
      */
     @Argument(fullName="maxBasesInOverhang", shortName="maxOverhang", doc="max number of bases allowed in the overhang", optional=true)
-    protected int MAX_BASES_TO_CLIP = 40;
+    int MAX_BASES_TO_CLIP = 40;
 
     @Argument(fullName="doNotFixOverhangs", shortName="doNotFixOverhangs", doc="do not have the walker soft-clip overhanging sections of the reads", optional=true)
-    protected boolean doNotFixOverhangs = false;
+    boolean doNotFixOverhangs = false;
 
     @Argument(fullName="processSecondaryAlignments", shortName="processSecondaryAlignments", doc="have the walker split secondary alignments (will still repair MC tag without it)", optional=true)
-    protected boolean processSecondaryAlignments = false;
+    boolean processSecondaryAlignments = false;
 
     @Override
     public boolean requiresReference() {
@@ -127,13 +131,12 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
     // Activates writing in the manager, which destinguishes each pass
     @Override
     protected void afterFirstPass() {
-        super.afterFirstPass();
         overhangManager.activateWriting();
     }
 
     @Override
     public void closeTool() {
-        if (overhangManager != null) { overhangManager.close(); }
+        if (overhangManager != null) { overhangManager.flush(); }
         if (outputWriter != null ) { outputWriter.close(); }
         try {if (referenceReader != null) { referenceReader.close(); } }
         catch (IOException ex) {
@@ -143,8 +146,8 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
 
 
     /**
-     * Goes through the cigar string of the read and create new reads for each consecutive non-N elements (while soft clipping the rest of the read) that are supplemental to eachother.
-     * For example: for a read with cigar '1H2M2D1M2N1M2I1N1M2S' 3 new reads will be created with cigar strings: 1H2M2D1M6S, 1H3S1M2I2S and 1H6S1M1S
+     * Goes through the cigar string of the read and create new reads for each consecutive non-N elements (while soft clipping the rest of the read) that are supplemental to each other.
+     * For example: for a read with cigar '1H2M2D1M2N1M2I1N1M2S' 3 new reads will be created with cigar strings: 1H2M2D1M6S, 1H3S1M2I2S and 1H6S1M2S
      * If the read has an MC tag it will be adjusted according to the clipping of that mate based on its cigar
      *
      * @param read     the read to split (can be null)
@@ -153,11 +156,11 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
     public static GATKRead splitNCigarRead(final GATKRead read, OverhangFixingManager manager, boolean emitReads, SAMFileHeader header, boolean secondaryAlignments) {
         final int numCigarElements = read.numCigarElements();
         List<GATKRead> splitReads = new ArrayList<>(2);
-        boolean sectionHasMatch = false;
 
         // Run the tool on dummy mate read to determine what the mate cigar will be upon completion, if manager has a prediction then dont repair
-        if (emitReads && read.hasAttribute("MC")) {
-            read.setAttribute("MC", splitNCigarRead(ArtificialReadUtils.createArtificialRead(header ,TextCigarCodec.decode(read.getAttributeAsString("MC"))), manager, false, header, secondaryAlignments).getCigar().toString());
+        if (emitReads && read.hasAttribute(MATE_CIGAR_TAG)) {
+            final GATKRead mateSplitting = splitNCigarRead(ArtificialReadUtils.createArtificialRead(header, TextCigarCodec.decode(read.getAttributeAsString(MATE_CIGAR_TAG))), manager, false, header, secondaryAlignments);
+            read.setAttribute(MATE_CIGAR_TAG, mateSplitting.getCigar().toString());
         }
         manager.setPredictedMateInformation(read);
 
@@ -167,9 +170,10 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
             return read;
         }
 
+        boolean sectionHasMatch = false;
         int firstCigarIndex = 0;
         for ( int i = 0; i < numCigarElements; i++ ) {
-            final CigarElement cigarElement = read.getCigar().getCigarElement(i);
+            final CigarElement cigarElement = read.getCigarElement(i);
             CigarOperator op = cigarElement.getOperator();
 
             // One of the "Real" operators
@@ -180,7 +184,7 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
 
             if (op == CigarOperator.N) {
                 if (sectionHasMatch) {
-                    if (emitReads == false) {
+                    if (!emitReads) {
                         // not passing the manager ensures that no splices get added to the manager for fake reads
                         splitReads.add(splitReadBasedOnCigar(read, firstCigarIndex, i, null));
                     } else {
@@ -230,10 +234,10 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
 
         //in case a section of the read ends or starts with D (for example the first section in 1M1D1N1M is 1M1D), we should trim this cigar element
         // it can be 'if', but it was kept as 'while' to make sure the code can work with Cigar strings that were not "cleaned"
-        while(read.getCigar().getCigarElement(cigarFirstIndex).getOperator().equals(CigarOperator.D)) {
+        while(read.getCigarElement(cigarFirstIndex).getOperator().equals(CigarOperator.D)) {
             cigarFirstIndex++;
         }
-        while(read.getCigar().getCigarElement(cigarSecondIndex-1).getOperator().equals(CigarOperator.D)) {
+        while(read.getCigarElement(cigarSecondIndex-1).getOperator().equals(CigarOperator.D)) {
             cigarSecondIndex--;
         }
         if(cigarFirstIndex > cigarSecondIndex) {
@@ -248,7 +252,7 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
         if ( forSplitPositions != null ) {
             final String contig = read.getContig();
             final int splitStart = startRefIndex + CigarUtils.countRefBasesBasedOnCigar(read,cigarFirstIndex,cigarEndIndex);  //we use cigarEndIndex instead of cigarSecondIndex so we won't take into account the D's at the end.
-            final int splitEnd = splitStart + read.getCigar().getCigarElement(cigarEndIndex).getLength() - 1;
+            final int splitEnd = splitStart + read.getCigarElement(cigarEndIndex).getLength() - 1;
             forSplitPositions.addSplicePosition(contig, splitStart, splitEnd);
         }
 
@@ -262,9 +266,9 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
      * @param header             the file header to associate with the given reads
      * @return a non-null read representing the section of the original read being split out
      */
-    public static void repairSuplementaryTags(List<GATKRead> readFamily, SAMFileHeader header) {
+    public static void repairSupplementaryTags(List<GATKRead> readFamily, SAMFileHeader header) {
         for (GATKRead read : readFamily) {
-            if (readFamily.size()>1) {
+            if (readFamily.size() > 1) {
                 read.clearAttribute("NH");
             }
             read.setAttribute("NM", SequenceUtil.calculateSamNmTagFromCigar(read.convertToSAMRecord(header)));

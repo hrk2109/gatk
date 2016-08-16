@@ -170,7 +170,7 @@ public final class FastqToSam extends PicardCommandLineProgram {
      * In some circumstances it might be useful to circumvent the command line based instantiation of this
      * class, however note that there is no handholding or guardrails to running in this manner.
      *
-     * It is the caller's responsibility to close the reader(s)
+     * It is the caller's responsibility to flush the reader(s)
      *
      * @param reader1 The FastqReader for the first fastq file
      * @param reader2 The second FastqReader if applicable. Pass in null if only using a single reader

@@ -508,7 +508,7 @@ public abstract class GATKTool extends CommandLineProgram {
 
     /**
      * Operations performed immediately after a successful traversal (ie when no uncaught exceptions were thrown during the traversal).
-     * Should be overridden by tool authors who need to close local resources, etc., after traversal.
+     * Should be overridden by tool authors who need to flush local resources, etc., after traversal.
      * Also allows tools to return a value representing the traversal result, which is printed by the engine.
      *
      * Default implementation does nothing and returns null.
@@ -540,7 +540,7 @@ public abstract class GATKTool extends CommandLineProgram {
      * on failed runs (when {@link #traverse} causes an exception), only {@link #closeTool} will be called.
      *
      * The default implementation does nothing.
-     * Subclasses should override this method to close any resources that must be closed regardless of the success of traversal.
+     * Subclasses should override this method to flush any resources that must be closed regardless of the success of traversal.
      */
     public void closeTool(){
     }

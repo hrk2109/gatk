@@ -113,7 +113,7 @@ public abstract class BaseTest {
     public CachingIndexedFastaSequenceFile hg19ReferenceReader;
     public GenomeLocParser hg19GenomeLocParser;
 
-    // used to seed the genome loc parser with a sequence dictionary
+    // used to seed the genome unclippedLoc parser with a sequence dictionary
     protected SAMFileHeader hg19Header;
 
     /**

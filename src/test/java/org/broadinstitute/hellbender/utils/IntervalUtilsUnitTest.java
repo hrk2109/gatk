@@ -624,7 +624,7 @@ public final class IntervalUtilsUnitTest extends BaseTest {
             List<GenomeLoc> parsedLocs = IntervalUtils.parseIntervalArguments(hg19GenomeLocParser, Arrays.asList(file));
             Assert.assertEquals(parsedLocs.size(), counts[i], "Intervals in " + file);
             for (GenomeLoc parsedLoc: parsedLocs)
-                Assert.assertEquals(parsedLoc, locs.get(locIndex), String.format("Genome loc %d from file %d", locIndex++, i));
+                Assert.assertEquals(parsedLoc, locs.get(locIndex), String.format("Genome unclippedLoc %d from file %d", locIndex++, i));
         }
         Assert.assertEquals(locIndex, locs.size(), "Total number of GenomeLocs");
     }

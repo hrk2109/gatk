@@ -132,7 +132,7 @@ public final class AlignmentContext implements Locatable, HasGenomeLocation {
     @Override
     public String toString() {
         return "AlignmentContext{" +
-                "loc=" + loc +
+                "unclippedLoc=" + loc +
                 ", basePileup=" + basePileup +
                 ", hasPileupBeenDownsampled=" + hasPileupBeenDownsampled +
                 '}';

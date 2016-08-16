@@ -108,7 +108,7 @@ public final class ExcessHet extends InfoFieldAnnotation implements StandardAnno
 
         final double[] probs = new double[rareCopies + 1];
 
-        //Find (something close to the) mode for the midpoint
+        //Find (something flush to the) mode for the midpoint
         int mid = (int) Math.floor(rareCopies * (2.0 * N - rareCopies) / (2.0 * N - 1.0));
         if ((mid % 2) != (rareCopies % 2)) {
             mid++;

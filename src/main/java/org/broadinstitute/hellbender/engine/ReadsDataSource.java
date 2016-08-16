@@ -280,7 +280,7 @@ public final class ReadsDataSource implements GATKDataSource<GATKRead>, AutoClos
      * @return Iterator over all reads in this data source, limited to overlap with the supplied intervals
      */
     private Iterator<GATKRead> prepareIteratorsForTraversal( final List<SimpleInterval> queryIntervals, final boolean queryUnmapped ) {
-        // htsjdk requires that only one iterator be open at a time per reader, so close out
+        // htsjdk requires that only one iterator be open at a time per reader, so flush out
         // any previous iterations
         closePreviousIterationsIfNecessary();
 

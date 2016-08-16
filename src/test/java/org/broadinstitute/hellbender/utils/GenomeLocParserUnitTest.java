@@ -31,7 +31,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 /**
- *         Test out the functionality of the new genome loc parser
+ *         Test out the functionality of the new genome unclippedLoc parser
  */
 public final class GenomeLocParserUnitTest extends BaseTest {
     private GenomeLocParser genomeLocParser;

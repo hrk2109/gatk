@@ -251,7 +251,7 @@ public final class GatherVcfs extends PicardCommandLineProgram {
                                 final BlockCompressedOutputStream blockOut = new BlockCompressedOutputStream(out, null);
                                 blockOut.write(blockContents, firstNonHeaderByteIndex, blockContents.length - firstNonHeaderByteIndex);
                                 blockOut.flush();
-                                // Don't close blockOut because closing underlying stream would break everything
+                                // Don't flush blockOut because closing underlying stream would break everything
                                 break;
                             }
                         }
@@ -269,7 +269,7 @@ public final class GatherVcfs extends PicardCommandLineProgram {
                 }
             }
 
-            // And lastly add the Terminator block and close up
+            // And lastly add the Terminator block and flush up
             out.write(BlockCompressedStreamConstants.EMPTY_GZIP_BLOCK);
         }
         catch (final IOException ioe) {

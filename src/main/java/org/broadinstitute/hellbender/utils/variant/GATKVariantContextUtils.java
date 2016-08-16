@@ -683,7 +683,7 @@ public final class GATKVariantContextUtils {
 
         boolean remapped = false;
 
-        // cycle through and add info from the other VCs, making sure the loc/reference matches
+        // cycle through and add info from the other VCs, making sure the unclippedLoc/reference matches
         for ( final VariantContext vc : VCs ) {
             if ( longestVC.getStart() != vc.getStart() )
                 throw new IllegalStateException("BUG: attempting to merge VariantContexts with different start sites: first="+ first.toString() + " second=" + vc.toString());

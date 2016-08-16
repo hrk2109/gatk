@@ -2,10 +2,12 @@ package org.broadinstitute.hellbender.tools.walkers.rnaseq;
 
 import htsjdk.samtools.Cigar;
 import htsjdk.samtools.SAMFileHeader;
+import htsjdk.samtools.TextCigarCodec;
 import htsjdk.samtools.reference.IndexedFastaSequenceFile;
 import htsjdk.samtools.util.Tuple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.broadinstitute.hellbender.exceptions.GATKException;
 import org.broadinstitute.hellbender.utils.GenomeLoc;
 import org.broadinstitute.hellbender.utils.GenomeLocParser;
 import org.broadinstitute.hellbender.utils.Utils;
@@ -60,7 +62,7 @@ public class OverhangFixingManager {
     // fasta reference reader to check overhanging edges in the exome reference sequence
     private final IndexedFastaSequenceFile referenceReader;
 
-    // the genome loc parser
+    // the genome unclippedLoc parser
     private final GenomeLocParser genomeLocParser;
 
     // the read cache
@@ -110,7 +112,7 @@ public class OverhangFixingManager {
         this.processSecondaryReads = processSecondaryReads;
     }
 
-    public final int getNReadsInQueue() { return waitingReads; }
+    final int getNReadsInQueue() { return waitingReads; }
 
     /**
      * For testing purposes only
@@ -226,34 +228,37 @@ public class OverhangFixingManager {
     }
 
     /**
-     * Try to fix the given read using the given split
+     * Try to fix the given splitRead using the given split
      *
-     * @param read        the read to fix
+     * @param splitRead        the splitRead to fix
      * @param splice      the split (bad region to clip out)
      */
-    void fixSplit(final SplitRead read, final Splice splice) {
-        // if the read doesn't even overlap the split position then we can just exit
-        if ( read.loc == null || !splice.loc.overlapsP(read.loc) ) {
+    void fixSplit(final SplitRead splitRead, final Splice splice) {
+        // if the splitRead doesn't even overlap the split position then we can just exit
+        if ( splitRead.unclippedLoc == null || !splice.loc.overlapsP(splitRead.unclippedLoc) ) {
             return;
         }
-        // if the read is secondary, do not clip it by overhang clipping at all
-        if (!processSecondaryReads && read.read.isSecondaryAlignment()) {
+        // if processSecondaryReads == false, filter out clipping of secondary alignments
+        if (!processSecondaryReads && splitRead.read.isSecondaryAlignment()) {
             return;
         }
-        final int readReferenceLength = read.read.getEnd() - read.read.getStart() + 1;
 
-        if ( isLeftOverhang(read.loc, splice.loc) ) {
-            final int overhang = splice.loc.getStop() - read.read.getStart() + 1;
-            if ( overhangingBasesMismatch(read.read.getBases(), read.read.getStart() - read.loc.getStart(), readReferenceLength, splice.reference, splice.reference.length - overhang, overhang) ) {
-                final GATKRead clippedRead = ReadClipper.softClipByReadCoordinates(read.read, 0, splice.loc.getStop() - read.loc.getStart());
-                read.setRead(clippedRead);
+        GenomeLoc readLoc = splitRead.unclippedLoc;
+        GATKRead read = splitRead.read;
+        final int readReferenceLength = read.getEnd() - read.getStart() + 1;
+
+        if ( isLeftOverhang(readLoc, splice.loc) ) {
+            final int overhang = splice.loc.getStop() - read.getStart() + 1;
+            if ( overhangingBasesMismatch(read.getBases(), read.getStart() - readLoc.getStart(), readReferenceLength, splice.reference, splice.reference.length - overhang, overhang) ) {
+                final GATKRead clippedRead = ReadClipper.softClipByReadCoordinates(read, 0, splice.loc.getStop() - readLoc.getStart());
+                splitRead.setRead(clippedRead);
             }
         }
-        else if ( isRightOverhang(read.loc, splice.loc) ) {
-            final int overhang = read.loc.getStop() - splice.loc.getStart() + 1;
-            if ( overhangingBasesMismatch(read.read.getBases(), read.read.getLength() - overhang, readReferenceLength, splice.reference, 0, read.read.getEnd() - splice.loc.getStart() + 1) ) {
-                final GATKRead clippedRead = ReadClipper.softClipByReadCoordinates(read.read, read.read.getLength() - overhang, read.read.getLength() - 1);
-                read.setRead(clippedRead);
+        else if ( isRightOverhang(readLoc, splice.loc) ) {
+            final int overhang = readLoc.getStop() - splice.loc.getStart() + 1;
+            if ( overhangingBasesMismatch(read.getBases(), read.getLength() - overhang, readReferenceLength, splice.reference, 0, read.getEnd() - splice.loc.getStart() + 1) ) {
+                final GATKRead clippedRead = ReadClipper.softClipByReadCoordinates(read, read.getLength() - overhang, read.getLength() - 1);
+                splitRead.setRead(clippedRead);
             }
         }
     }
@@ -261,8 +266,8 @@ public class OverhangFixingManager {
     /**
      * Is this a proper overhang on the left side of the read?
      *
-     * @param readLoc    the read's loc
-     * @param spliceLoc   the split's loc
+     * @param readLoc    the read's unclippedLoc
+     * @param spliceLoc   the split's unclippedLoc
      * @return true if it's a left side overhang
      */
     protected static boolean isLeftOverhang(final GenomeLoc readLoc, final GenomeLoc spliceLoc) {
@@ -272,8 +277,8 @@ public class OverhangFixingManager {
     /**
      * Is this a proper overhang on the right side of the read?
      *
-     * @param readLoc    the read's loc
-     * @param spliceLoc   the split's loc
+     * @param readLoc    the read's unclippedLoc
+     * @param spliceLoc   the split's unclippedLoc
      * @return true if it's a right side overhang
      */
     protected static boolean isRightOverhang(final GenomeLoc readLoc, final GenomeLoc spliceLoc) {
@@ -320,7 +325,7 @@ public class OverhangFixingManager {
     /**
      * Close out the manager stream by clearing the read cache
      */
-    public void close() {
+    public void flush() {
         writeReads(0);
     }
 
@@ -337,7 +342,7 @@ public class OverhangFixingManager {
 
             // Repair the supplementary groups together and add them into the writer
             if (outputToFile) {
-                SplitNCigarReads.repairSuplementaryTags(waitingGroup.stream()
+                SplitNCigarReads.repairSupplementaryTags(waitingGroup.stream()
                         .map( r -> r.read )
                         .collect(Collectors.toList()), header);
                 for (SplitRead splitRead : waitingGroup) {
@@ -354,10 +359,17 @@ public class OverhangFixingManager {
         }
     }
 
-    // Sets the tool to start writing its output to the file writer
+    /**
+     * Activates output writing for the Overhang Fixing Manager. This command is used to allow the manager to write
+     * clipped and unclipped reads to the underlying file writer.
+      */
     public void activateWriting() {
-        close();
+        if (outputToFile) {
+            throw new GATKException("Cannot activate writing for OverhangClippingManager multiple times");
+        }
+        flush();
         splices.clear();
+        logger.info("Overhang Fixing Manager saved "+mateChangedReads.size()+" reads in the first pass");
         outputToFile = true;
     }
 
@@ -369,7 +381,7 @@ public class OverhangFixingManager {
         private final int oldStart;
 
         public GATKRead read;
-        public GenomeLoc loc;
+        public GenomeLoc unclippedLoc;
 
         public SplitRead(final GATKRead read) {
             oldCigar = read.getCigar();
@@ -381,7 +393,7 @@ public class OverhangFixingManager {
             if ( ! read.isEmpty() ) {
                 this.read = read;
                 if ( ! read.isUnmapped() ) {
-                    loc = genomeLocParser.createGenomeLoc(read.getContig(), ReadUtils.getSoftStart(read), ReadUtils.getSoftEnd(read));
+                    unclippedLoc = genomeLocParser.createGenomeLoc(read.getContig(), ReadUtils.getSoftStart(read), ReadUtils.getSoftEnd(read));
                 }
             }
         }
@@ -394,12 +406,16 @@ public class OverhangFixingManager {
         // Adds the relevant information for repairing the mate to setMateChanged keyed on a string composed of the start position
         public void setMateChanged() {
             if (!read.isUnmapped()) {
-                mateChangedReads.put(read.getName() + (read.isFirstOfPair()? 0: 1) + oldStart,
-                        new Tuple<>(read.getStart(),read.getCigar().toString()));
+                mateChangedReads.put( makeKey(read.getName(), !read.isFirstOfPair(), oldStart ),
+                        new Tuple<>(read.getStart(), TextCigarCodec.encode(read.getCigar())));
             }
         }
     }
 
+    // Generates the string key to be used for
+    private static String makeKey(String name, boolean firstOfPair, int mateStart) {
+        return name + (firstOfPair ? 1 : 0) + mateStart;
+    }
     /**
      * Will edit the mate MC tag and mate start position field for given read if that read has been recorded being edited
      * by the OverhangFixingManager before. Returns true if the read was edited by the tool, false otherwise.
@@ -411,7 +427,7 @@ public class OverhangFixingManager {
             return false;
         }
         if (!read.isEmpty() && read.isPaired()) {
-            String keystring = read.getName() + (read.isFirstOfPair()? 1: 0) + read.getMateStart();
+            String keystring = makeKey(read.getName(), read.isFirstOfPair(), read.getMateStart());
             if (mateChangedReads.containsKey(keystring)) {
                 Tuple<Integer, String> value = mateChangedReads.get(keystring);
 

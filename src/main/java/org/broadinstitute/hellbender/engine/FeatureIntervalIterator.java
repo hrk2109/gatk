@@ -117,7 +117,7 @@ class FeatureIntervalIterator<T extends Feature> implements CloseableTribbleIter
      * @return true if we successfully queried the next interval, false if there are no more intervals to query
      */
     private boolean queryNextInterval() {
-        // Make sure to close out the query iterator for the previous interval, since Tribble only allows us
+        // Make sure to flush out the query iterator for the previous interval, since Tribble only allows us
         // to have one iterator open over our FeatureReader at a time.
         if ( featuresInCurrentInterval != null ) {
             featuresInCurrentInterval.close();

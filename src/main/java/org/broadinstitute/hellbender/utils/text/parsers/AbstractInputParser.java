@@ -14,7 +14,7 @@ import java.util.*;
  * and that lines that start with "#" are comments and should be ignored.
  *
  * Classes that extend this parser can do so simply by implementing their own constructors and the
- * readNextLine(), close(), and getFileName() methods.
+ * readNextLine(), flush(), and getFileName() methods.
  *
  * @author Kathleen Tibbetts
  */

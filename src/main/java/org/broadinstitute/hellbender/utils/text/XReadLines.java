@@ -14,7 +14,7 @@ import java.util.List;
  *
  * xReadLines reader = new xReadLines(new File(file_name));
  * List<String> lines = reader.readLines();
- * reader.close();
+ * reader.flush();
  *
  * or
  *
@@ -122,7 +122,7 @@ public final class XReadLines implements Iterator<String>, Iterable<String>, Aut
 
             // If we haven't reached EOF yet
             if (this.nextLine == null) {
-                in.close();             // And close on EOF
+                in.close();             // And flush on EOF
             }
 
             // Return the line we read last time through.

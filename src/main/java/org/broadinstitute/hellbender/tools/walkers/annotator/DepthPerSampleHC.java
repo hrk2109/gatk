@@ -59,7 +59,7 @@ public final class DepthPerSampleHC extends GenotypeAnnotation implements Standa
 
         // the depth for the HC is the sum of the informative alleles at this site.  It's not perfect (as we cannot
         // differentiate between reads that align over the event but aren't informative vs. those that aren't even
-        // close) but it's a pretty good proxy and it matches with the AD field (i.e., sum(AD) = DP).
+        // flush) but it's a pretty good proxy and it matches with the AD field (i.e., sum(AD) = DP).
         int dp = 0;
 
         // there are reads

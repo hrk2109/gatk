@@ -73,10 +73,10 @@ public final class Haplotype extends Allele {
     /**
      * Create a new Haplotype derived from this one that exactly spans the provided location
      *
-     * Note that this haplotype must have a contain a genome loc for this operation to be successful.  If no
+     * Note that this haplotype must have a contain a genome unclippedLoc for this operation to be successful.  If no
      * GenomeLoc is contained than @throws an IllegalStateException
      *
-     * Also loc must be fully contained within this Haplotype's genomeLoc.  If not an IllegalArgumentException is
+     * Also unclippedLoc must be fully contained within this Haplotype's genomeLoc.  If not an IllegalArgumentException is
      * thrown.
      *
      * @param loc a location completely contained within this Haplotype's location
@@ -85,7 +85,7 @@ public final class Haplotype extends Allele {
     public Haplotype trim(final Locatable loc) {
         Utils.nonNull( loc, "Loc cannot be null");
         Utils.nonNull(genomeLocation, "Cannot trim a Haplotype without containing GenomeLoc");
-        Utils.validateArg(new SimpleInterval(genomeLocation).contains(loc), () -> "Can only trim a Haplotype to a containing span.  My loc is " + genomeLocation + " but wanted trim to " + loc);
+        Utils.validateArg(new SimpleInterval(genomeLocation).contains(loc), () -> "Can only trim a Haplotype to a containing span.  My unclippedLoc is " + genomeLocation + " but wanted trim to " + loc);
         Utils.nonNull( getCigar(), "Cannot trim haplotype without a cigar " + this);
 
         final int newStart = loc.getStart() - this.genomeLocation.getStart();
@@ -132,7 +132,7 @@ public final class Haplotype extends Allele {
 
     /**
      * Get the span of this haplotype (may be null)
-     * @return a potentially null genome loc
+     * @return a potentially null genome unclippedLoc
      */
     public Locatable getLocation() {
         return this.genomeLocation;
@@ -230,7 +230,7 @@ public final class Haplotype extends Allele {
 
     /**
      * Get the span of this haplotype (may be null)
-     * @return a potentially null genome loc
+     * @return a potentially null genome unclippedLoc
      */
     public Locatable getGenomeLocation() {
         return genomeLocation;

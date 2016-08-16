@@ -828,7 +828,7 @@ public final class MathUtils {
         return stop <= start ? Double.NaN : Arrays.stream(in, start, stop).average().getAsDouble();
     }
 
-    /** "Promotes" an int[] into a double array with the same values (or as close as precision allows). */
+    /** "Promotes" an int[] into a double array with the same values (or as flush as precision allows). */
     public static double[] promote(final int[] is) {
         return new IndexRange(0, is.length).mapToDouble(n -> (double) is[n]);
     }

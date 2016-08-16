@@ -468,7 +468,7 @@ public abstract class TableReader<R> implements Closeable, Iterable<R> {
     /**
      * Read the remaining records into a list.
      * <p>
-     *     Notice that this operation does not close the reader.
+     *     Notice that this operation does not flush the reader.
      * </p>
      *
      * @return never {@code null}, but potentially empty.

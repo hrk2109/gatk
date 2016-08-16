@@ -186,7 +186,7 @@ public final class OverhangFixingManagerUnitTest extends BaseTest {
 
         manager.addReadGroup(readGroup);
         manager.addSplicePosition("1", 1, 2); // this will activate the splitting code
-        manager.activateWriting(); // this will close and populate the repair tree
+        manager.activateWriting(); // this will flush and populate the repair tree
 
         Assert.assertFalse(manager.setPredictedMateInformation(read1a));
         Assert.assertEquals(read1a.getAttributeAsString("MC"), "6M");
@@ -228,7 +228,7 @@ public final class OverhangFixingManagerUnitTest extends BaseTest {
         manager.addReadGroup(readGroup1);
         manager.addReadGroup(readGroup2);
         manager.addSplicePosition("1", 1, 2); // this will activate the splitting code
-        manager.activateWriting(); // this will close and populate the repair tree
+        manager.activateWriting(); // this will flush and populate the repair tree
 
         Assert.assertFalse(manager.setPredictedMateInformation(read1a));
         Assert.assertEquals(read1a.getMateStart(), 10020);

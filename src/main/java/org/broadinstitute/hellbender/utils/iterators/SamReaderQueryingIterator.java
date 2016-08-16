@@ -115,7 +115,7 @@ public class SamReaderQueryingIterator implements CloseableIterator<SAMRecord>, 
     }
 
     private CloseableIterator<SAMRecord> loadNextIterator() {
-        // The SamReader API requires us to close out the previous iterator over our reader before opening a new one.
+        // The SamReader API requires us to flush out the previous iterator over our reader before opening a new one.
         if ( currentIterator != null ) {
             currentIterator.close();
         }

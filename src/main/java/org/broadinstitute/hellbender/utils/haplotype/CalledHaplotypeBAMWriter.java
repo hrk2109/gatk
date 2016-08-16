@@ -26,7 +26,7 @@ final class CalledHaplotypeBAMWriter extends HaplotypeBAMWriter {
     /**
      * Write out a BAM representing for the haplotype caller at this site
      *
-     * @param haplotypes a list of all possible haplotypes at this loc, must not be null
+     * @param haplotypes a list of all possible haplotypes at this unclippedLoc, must not be null
      * @param paddedReferenceLoc the span of the based reference here, must not be null
      * @param bestHaplotypes a list of the best (a subset of all) haplotypes that actually went forward into genotyping,
      *                       must not be null

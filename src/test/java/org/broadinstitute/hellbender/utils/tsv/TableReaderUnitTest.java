@@ -148,7 +148,7 @@ public class TableReaderUnitTest extends BaseTest {
         final File testFile = createTestInput(lines);
         final TableReader<TestTuple> reader = new TestTupleReader(testFile);
         final List<TestTuple> actual = reader.toList();
-        // make sure is the end and is not close:
+        // make sure is the end and is not flush:
         Assert.assertSame(reader.readRecord(), null);
         Assert.assertEquals(actual, Arrays.asList(ORDINARY_VALUE_TEST_TUPLES));
         reader.close();

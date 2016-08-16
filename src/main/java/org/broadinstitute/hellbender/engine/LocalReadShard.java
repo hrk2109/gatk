@@ -116,7 +116,7 @@ public final class LocalReadShard implements Shard<GATKRead> {
 
     /**
      * @param loc Locatable to test
-     * @return true if loc is completely contained within this shard's interval, otherwise false
+     * @return true if unclippedLoc is completely contained within this shard's interval, otherwise false
      */
     public boolean contains(final Locatable loc) {
         Utils.nonNull(loc);
@@ -125,7 +125,7 @@ public final class LocalReadShard implements Shard<GATKRead> {
 
     /**
      * @param loc Locatable to test
-     * @return true if loc starts within this shard's interval, otherwise false
+     * @return true if unclippedLoc starts within this shard's interval, otherwise false
      */
     public boolean containsStartPosition(final Locatable loc) {
         Utils.nonNull(loc);

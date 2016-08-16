@@ -20,7 +20,7 @@ import java.util.List;
  *     <li>Comment lines starting with # are ignored</li>
  *     <li>Each non-header and non-comment line is split into parts by whitespace,
  *     and these parts are assigned as a map to their corresponding column name in the header.
- *     Note that the first element (corresponding to the HEADER column) must be a valid genome loc
+ *     Note that the first element (corresponding to the HEADER column) must be a valid genome unclippedLoc
  *     such as 1, 1:1 or 1:1-10, which is the position of the Table element on the genome.  TableCodec
  *     requires that there be one value for each column in the header, and no more, on all lines.</li>
  *     </ul>

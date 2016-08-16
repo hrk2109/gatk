@@ -108,7 +108,7 @@ public final class RScriptExecutor {
                 expression.append(");");
 
                 for (RScriptLibrary library: this.libraries) {
-                    expression.append("library('").append(library.getLibraryName()).append("', lib.loc=tempLibDir);");
+                    expression.append("library('").append(library.getLibraryName()).append("', lib.unclippedLoc=tempLibDir);");
                 }
             }
 

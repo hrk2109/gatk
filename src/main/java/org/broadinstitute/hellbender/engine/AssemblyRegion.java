@@ -66,7 +66,7 @@ public final class AssemblyRegion implements Locatable {
 
     /**
      * The span of this assembly region, including the bp covered by all reads in this
-     * region.  This union of extensionLoc and the loc of all reads in this region.
+     * region.  This union of extensionLoc and the unclippedLoc of all reads in this region.
      *
      * Must be at least as large as extendedLoc, but may be larger when reads
      * partially overlap this region.
@@ -115,7 +115,7 @@ public final class AssemblyRegion implements Locatable {
      * @param contig our contig
      * @param start our start as an arbitrary integer (may be negative, etc)
      * @param stop our stop as an arbitrary integer (may be negative, etc)
-     * @return a valid genome loc over contig, or null if a meaningful genome loc cannot be created
+     * @return a valid genome unclippedLoc over contig, or null if a meaningful genome unclippedLoc cannot be created
      */
     private SimpleInterval trimIntervalToContig(final String contig, final int start, final int stop) {
         final int contigLength = header.getSequence(contig).getSequenceLength();
@@ -395,7 +395,7 @@ public final class AssemblyRegion implements Locatable {
 
     /**
      * The span of this assembly region, including the bp covered by all reads in this
-     * region.  This union of extensionLoc and the loc of all reads in this region.
+     * region.  This union of extensionLoc and the unclippedLoc of all reads in this region.
      *
      * Must be at least as large as extendedLoc, but may be larger when reads
      * partially overlap this region.
@@ -436,7 +436,7 @@ public final class AssemblyRegion implements Locatable {
      *
      * @param referenceReader the source of the reference genome bases
      * @param padding the padding, in BP, we want to add to either side of this active region extended region
-     * @param genomeLoc a non-null genome loc indicating the base span of the bp we'd like to get the reference for
+     * @param genomeLoc a non-null genome unclippedLoc indicating the base span of the bp we'd like to get the reference for
      * @return a non-null array of bytes holding the reference bases in referenceReader
      */
     private static byte[] getReference(final ReferenceSequenceFile referenceReader, final int padding, final SimpleInterval genomeLoc) {

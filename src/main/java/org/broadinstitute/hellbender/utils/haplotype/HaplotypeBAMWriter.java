@@ -115,7 +115,7 @@ public abstract class HaplotypeBAMWriter implements AutoCloseable {
     /**
      * Write out a BAM representing for the haplotype caller at this site
      *
-     * @param haplotypes a list of all possible haplotypes at this loc
+     * @param haplotypes a list of all possible haplotypes at this unclippedLoc
      * @param paddedReferenceLoc the span of the based reference here
      * @param bestHaplotypes a list of the best (a subset of all) haplotypes that actually went forward into genotyping
      * @param calledHaplotypes a list of the haplotypes that where actually called as non-reference
@@ -143,7 +143,7 @@ public abstract class HaplotypeBAMWriter implements AutoCloseable {
      * @param haplotypes a collection of haplotypes to write to the BAM, must not be null
      * @param bestHaplotypes a subset of haplotypes that contains those that are best "either good or called", must not
      *                       be null
-     * @param paddedReferenceLoc the genome loc of the padded reference, must not be null
+     * @param paddedReferenceLoc the genome unclippedLoc of the padded reference, must not be null
      */
     protected void writeHaplotypesAsReads(final Collection<Haplotype> haplotypes,
                                           final Set<Haplotype> bestHaplotypes,

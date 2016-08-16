@@ -59,7 +59,7 @@ public final class GenomeLocParser {
     }
 
     /**
-     * Create a genome loc parser based on seqDict with the specified level of validation
+     * Create a genome unclippedLoc parser based on seqDict with the specified level of validation
      * @param seqDict the sequence dictionary to use when creating genome locs
      * @param validationLevel how much validation should we do of the genome locs at runtime? Purely for testing purposes
      */
@@ -140,7 +140,7 @@ public final class GenomeLocParser {
      *
      * Note that because this function doesn't take the contig index as an argument for contig, it
      * has a slight performance penalty over the version that does take the contig index.  Does not
-     * require the created genome loc on the reference genome
+     * require the created genome unclippedLoc on the reference genome
      */
     public GenomeLoc createGenomeLoc(String contig, final int start, final int stop) {
         return createGenomeLoc(contig, getContigIndex(contig), start, stop);
@@ -171,7 +171,7 @@ public final class GenomeLocParser {
      * @param contig the contig name
      * @param index the index into the GATK's SAMSequencingDictionary of contig (passed for efficiency to avoid the lookup)
      * @param start the starting position
-     * @param stop  the stop position of this loc, inclusive
+     * @param stop  the stop position of this unclippedLoc, inclusive
      * @param mustBeOnReference if true, this factory will throw a UserException.MalformedGenomeLoc if start or stop isn't on the contig
      *
      * @return a non-null GenomeLoc
@@ -190,9 +190,9 @@ public final class GenomeLocParser {
      * @see #createGenomeLoc(String, int, int, int, boolean) for exact details of the creation.
      *
      * @param contig the contig name
-     * @param pos    the start and stop of the created genome loc
+     * @param pos    the start and stop of the created genome unclippedLoc
      *
-     * @return a genome loc representing a single base at the specified postion on the contig
+     * @return a genome unclippedLoc representing a single base at the specified postion on the contig
      */
     public GenomeLoc createGenomeLoc(final String contig, final int pos) {
         return createGenomeLoc(contig, getContigIndex(contig), pos, pos);
@@ -205,7 +205,7 @@ public final class GenomeLocParser {
      * that start <= stop.
      *
      * if mustBeOnReference is true,
-     * performs boundary validation for genome loc INTERVALS:
+     * performs boundary validation for genome unclippedLoc INTERVALS:
      * start and stop are on contig and start <= stop
      *
      * @param contig the contig name
@@ -235,7 +235,7 @@ public final class GenomeLocParser {
 
                 final int contigSize = contigInfo.getSequenceLength();
                 if (start > contigSize || stop > contigSize)
-                    vglHelper(String.format("The genome loc coordinates %d-%d exceed the contig size (%d)", start, stop, contigSize));
+                    vglHelper(String.format("The genome unclippedLoc coordinates %d-%d exceed the contig size (%d)", start, stop, contigSize));
             }
 
             return contigInfo.getSequenceName();
@@ -243,12 +243,12 @@ public final class GenomeLocParser {
     }
 
     /**
-     * Would a genome loc created with the given parameters be valid w.r.t. the master sequence dictionary?
+     * Would a genome unclippedLoc created with the given parameters be valid w.r.t. the master sequence dictionary?
      * @param contig the contig we'd use
      * @param start the start position
      * @param stop the stop
-     * @param mustBeOnReference should we require the resulting genome loc to be completely on the reference genome?
-     * @return true if this would produce a valid genome loc, false otherwise
+     * @param mustBeOnReference should we require the resulting genome unclippedLoc to be completely on the reference genome?
+     * @return true if this would produce a valid genome unclippedLoc, false otherwise
      */
     public boolean isValidGenomeLoc(String contig, int start, int stop, boolean mustBeOnReference ) {
         try {
@@ -374,10 +374,10 @@ public final class GenomeLocParser {
     }
 
     /**
-     * Creates a loc to the left (starting at the loc start + 1) of maxBasePairs size.
-     * @param loc The original loc
+     * Creates a unclippedLoc to the left (starting at the unclippedLoc start + 1) of maxBasePairs size.
+     * @param loc The original unclippedLoc
      * @param maxBasePairs The maximum number of basePairs
-     * @return The contiguous loc of up to maxBasePairs length or null if the loc is already at the start of the contig.
+     * @return The contiguous unclippedLoc of up to maxBasePairs length or null if the unclippedLoc is already at the start of the contig.
      */
     public GenomeLoc createGenomeLocAtStart(final GenomeLoc loc, final int maxBasePairs) {
         if (GenomeLoc.isUnmapped(loc))
@@ -398,10 +398,10 @@ public final class GenomeLocParser {
     }
 
     /**
-     * Creates a loc padded in both directions by maxBasePairs size (if possible).
-     * @param loc      The original loc
+     * Creates a unclippedLoc padded in both directions by maxBasePairs size (if possible).
+     * @param loc      The original unclippedLoc
      * @param padding  The number of base pairs to pad on either end
-     * @return The contiguous loc of length up to the original length + 2*padding (depending on the start/end of the contig).
+     * @return The contiguous unclippedLoc of length up to the original length + 2*padding (depending on the start/end of the contig).
      */
     public GenomeLoc createPaddedGenomeLoc(final GenomeLoc loc, final int padding) {
         if (GenomeLoc.isUnmapped(loc) || padding == 0)
@@ -411,10 +411,10 @@ public final class GenomeLocParser {
     }
 
     /**
-     * Creates a loc to the right (starting at the loc stop + 1) of maxBasePairs size.
-     * @param loc The original loc
+     * Creates a unclippedLoc to the right (starting at the unclippedLoc stop + 1) of maxBasePairs size.
+     * @param loc The original unclippedLoc
      * @param maxBasePairs The maximum number of basePairs
-     * @return The contiguous loc of up to maxBasePairs length or null if the loc is already at the end of the contig.
+     * @return The contiguous unclippedLoc of up to maxBasePairs length or null if the unclippedLoc is already at the end of the contig.
      */
     public GenomeLoc createGenomeLocAtStop(final GenomeLoc loc, final int maxBasePairs) {
         if (GenomeLoc.isUnmapped(loc))
@@ -443,7 +443,7 @@ public final class GenomeLocParser {
     }
 
     /**
-     * Create a new genome loc, bounding start and stop by the start and end of contig
+     * Create a new genome unclippedLoc, bounding start and stop by the start and end of contig
      *
      * This function will return null if start and stop cannot be adjusted in any reasonable way
      * to be on the contig.  For example, if start and stop are both past the end of the contig,
@@ -452,7 +452,7 @@ public final class GenomeLocParser {
      * @param contig our contig
      * @param start our start as an arbitrary integer (may be negative, etc)
      * @param stop our stop as an arbitrary integer (may be negative, etc)
-     * @return a valid genome loc over contig, or null if a meaningful genome loc cannot be created
+     * @return a valid genome unclippedLoc over contig, or null if a meaningful genome unclippedLoc cannot be created
      */
     public GenomeLoc createGenomeLocOnContig(final String contig, final int contigIndex, final int start, final int stop) {
         final int contigLength = contigInfo.getSequence(contigIndex).getSequenceLength();
@@ -460,7 +460,7 @@ public final class GenomeLocParser {
         final int boundedStop = Math.min(contigLength, stop);
 
         if ( boundedStart > contigLength || boundedStop < 1 )
-            // there's no meaningful way to create this genome loc, as the start and stop are off the contig
+            // there's no meaningful way to create this genome unclippedLoc, as the start and stop are off the contig
             return null;
         else
             return createGenomeLoc(contig, contigIndex, boundedStart, boundedStop);

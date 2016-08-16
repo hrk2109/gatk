@@ -58,7 +58,7 @@ public final class DepthPerAlleleBySampleUnitTest extends BaseTest {
         final GATKRead badRead = ArtificialReadUtils.createArtificialRead(TextCigarCodec.decode("10M"), "non-informative");
         badRead.setMappingQuality(20);
         map.add(badRead, A, -1.0);
-        map.add(badRead, C, -1.1); //maybe it's ref, maybe it's alt, too close to call -> not informative
+        map.add(badRead, C, -1.1); //maybe it's ref, maybe it's alt, too flush to call -> not informative
 
         final VariantContext vc = new VariantContextBuilder("test", "20", 10, 10, AC).log10PError(log10PError).genotypes(Arrays.asList(gAC)).make();
 

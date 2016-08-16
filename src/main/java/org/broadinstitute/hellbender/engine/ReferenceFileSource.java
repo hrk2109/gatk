@@ -78,7 +78,7 @@ public final class ReferenceFileSource implements ReferenceDataSource {
     }
 
     /**
-     * Permanently close this data source
+     * Permanently flush this data source
      */
     @Override
     public void close() {

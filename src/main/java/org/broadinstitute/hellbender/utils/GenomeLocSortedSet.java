@@ -107,7 +107,7 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
     }
 
     /**
-     * Return the number of bps before loc in the sorted set
+     * Return the number of bps before unclippedLoc in the sorted set
      *
      * @param loc the location before which we are counting bases
      * @return the number of base pairs over all previous intervals
@@ -120,7 +120,7 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
                 s += e.size();
             else if ( e.isPast(loc) )
                 break; // we are done
-            else // loc is inside of s
+            else // unclippedLoc is inside of s
                 s += loc.getStart() - e.getStart();
         }
 
@@ -137,10 +137,10 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
     }
 
     /**
-     * Determine if the given loc overlaps any loc in the sorted set
+     * Determine if the given unclippedLoc overlaps any unclippedLoc in the sorted set
      *
      * @param loc the location to test
-     * @return trip if the location overlaps any loc
+     * @return trip if the location overlaps any unclippedLoc
      */
     public boolean overlaps(final GenomeLoc loc) {
         // edge condition
@@ -180,23 +180,23 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
     }
 
     /**
-     * Return a list of intervals overlapping loc
+     * Return a list of intervals overlapping unclippedLoc
      *
      * @param loc the location we want overlapping intervals
-     * @return a non-null list of locations that overlap loc
+     * @return a non-null list of locations that overlap unclippedLoc
      */
     public List<GenomeLoc> getOverlapping(final GenomeLoc loc) {
-        // the max ensures that if loc would be the first element, that we start searching at the first element
+        // the max ensures that if unclippedLoc would be the first element, that we start searching at the first element
         final int index = Collections.binarySearch(mArray, loc);
         if ( index >= 0 )
-            // we can safely return a singleton because overlapping regions are merged and loc is exactly in
+            // we can safely return a singleton because overlapping regions are merged and unclippedLoc is exactly in
             // the set already
             return Collections.singletonList(loc);
 
-        // if loc isn't in the list index is (-(insertion point) - 1). The insertion point is defined as the point at
+        // if unclippedLoc isn't in the list index is (-(insertion point) - 1). The insertion point is defined as the point at
         // which the key would be inserted into the list: the index of the first element greater than the key, or list.size()
         // -ins - 1 = index => -ins = index + 1 => ins = -(index + 1)
-        // Note that we look one before the index in this case, as loc might occur after the previous overlapping interval
+        // Note that we look one before the index in this case, as unclippedLoc might occur after the previous overlapping interval
         final int start = Math.max(-(index + 1) - 1, 0);
         final int size = mArray.size();
 
@@ -206,10 +206,10 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
             if ( loc.overlapsP(myLoc) )
                 overlapping.add(myLoc);
             else if ( myLoc.isPast(loc) )
-                // since mArray is ordered, if myLoc is past loc that means all future
-                // intervals cannot overlap loc either.  So we can safely abort the search
+                // since mArray is ordered, if myLoc is past unclippedLoc that means all future
+                // intervals cannot overlap unclippedLoc either.  So we can safely abort the search
                 // note that we need to be a bit conservative on our tests since index needs to start
-                // at -1 the position of index, so it's possible that myLoc and loc don't overlap but the next
+                // at -1 the position of index, so it's possible that myLoc and unclippedLoc don't overlap but the next
                 // position might
                 break;
         }
@@ -218,12 +218,12 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
     }
 
     /**
-     * Return a list of intervals overlapping loc by enumerating all locs and testing for overlap
+     * Return a list of intervals overlapping unclippedLoc by enumerating all locs and testing for overlap
      *
      * Purely for testing purposes -- this is way to slow for any production code
      *
      * @param loc the location we want overlapping intervals
-     * @return a non-null list of locations that overlap loc
+     * @return a non-null list of locations that overlap unclippedLoc
      */
     protected List<GenomeLoc> getOverlappingFullSearch(final GenomeLoc loc) {
         final List<GenomeLoc> overlapping = new LinkedList<>();
@@ -239,11 +239,11 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
 
     /**
      * Adds a GenomeLoc to the collection, inserting at the correct sorted position into the set.
-     * Throws an exception if the loc overlaps another loc already in the set.
+     * Throws an exception if the unclippedLoc overlaps another unclippedLoc already in the set.
      *
      * @param loc the GenomeLoc to add
      *
-     * @return true if the loc was added or false otherwise (if the loc was null)
+     * @return true if the unclippedLoc was added or false otherwise (if the unclippedLoc was null)
      */
     public boolean add(final GenomeLoc loc) {
         return add(loc, false);
@@ -255,7 +255,7 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
      *
      * @param loc the GenomeLoc to add
      *
-     * @return true if the loc was added or false otherwise (if the loc was null)
+     * @return true if the unclippedLoc was added or false otherwise (if the unclippedLoc was null)
      */
     public boolean addRegion(final GenomeLoc loc) {
         return add(loc, true);
@@ -267,19 +267,19 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
      * @param loc                      the GenomeLoc to add
      * @param mergeIfIntervalOverlaps  if true we merge the interval if it overlaps another one already in the set, otherwise we throw an exception
      *
-     * @return true if the loc was added or false otherwise (if the loc was null or an exact duplicate)
+     * @return true if the unclippedLoc was added or false otherwise (if the unclippedLoc was null or an exact duplicate)
      */
     public boolean add(final GenomeLoc loc, final boolean mergeIfIntervalOverlaps) {
         if ( loc == null )
             return false;
 
-        // if we have no other intervals yet or if the new loc is past the last one in the list (which is usually the
-        // case because locs are generally added in order) then be extra efficient and just add the loc to the end
+        // if we have no other intervals yet or if the new unclippedLoc is past the last one in the list (which is usually the
+        // case because locs are generally added in order) then be extra efficient and just add the unclippedLoc to the end
         if (mArray.isEmpty() || loc.isPast(mArray.get(mArray.size() - 1)) ) {
             return mArray.add(loc);
         }
 
-        // find where in the list the new loc belongs
+        // find where in the list the new unclippedLoc belongs
         final int binarySearchIndex = Collections.binarySearch(mArray,loc);
 
         // if it already exists in the list, return or throw an exception as needed
@@ -289,7 +289,7 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
             throw new IllegalArgumentException("GenomeLocSortedSet already contains the GenomeLoc " + loc);
         }
 
-        // if it overlaps a loc already in the list merge or throw an exception as needed
+        // if it overlaps a unclippedLoc already in the list merge or throw an exception as needed
         final int insertionIndex = -1 * (binarySearchIndex + 1);
         if ( ! mergeOverlappingIntervalsFromAdd(loc, insertionIndex, !mergeIfIntervalOverlaps) ) {
             // it does not overlap any current intervals, so add it to the set
@@ -302,11 +302,11 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
     /*
      * If the provided GenomeLoc overlaps another already in the set, merge them (or throw an exception if requested)
      *
-     * @param loc                          the GenomeLoc to add
-     * @param insertionIndex               the index in the sorted set to add the new loc
+     * @param unclippedLoc                          the GenomeLoc to add
+     * @param insertionIndex               the index in the sorted set to add the new unclippedLoc
      * @param throwExceptionIfOverlapping  if true we throw an exception if there's overlap, otherwise we merge them
      *
-     * @return true if the loc was added or false otherwise
+     * @return true if the unclippedLoc was added or false otherwise
      */
     private boolean mergeOverlappingIntervalsFromAdd(final GenomeLoc loc, final int insertionIndex, final boolean throwExceptionIfOverlapping) {
         // try merging with the previous index
@@ -403,7 +403,7 @@ public final class GenomeLocSortedSet extends AbstractSet<GenomeLoc> {
      *
      * @param locs the list<GenomeLoc>
      *
-     * @return the sorted genome loc list
+     * @return the sorted genome unclippedLoc list
      */
     public static GenomeLocSortedSet createSetFromList(GenomeLocParser parser,List<GenomeLoc> locs) {
         GenomeLocSortedSet set = new GenomeLocSortedSet(parser);

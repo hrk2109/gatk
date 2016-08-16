@@ -18,7 +18,7 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     private static final long serialVersionUID = 1L;
 
     /**
-     * the basic components of a genome loc, its contig index,
+     * the basic components of a genome unclippedLoc, its contig index,
      * start and stop position, and (optionally) the contig name
      */
     protected final int contigIndex;
@@ -136,13 +136,13 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     public GenomeLoc merge( final GenomeLoc that ) throws GATKException {
         if(GenomeLoc.isUnmapped(this) || GenomeLoc.isUnmapped(that)) {
             if(! GenomeLoc.isUnmapped(this) || !GenomeLoc.isUnmapped(that)) {
-                throw new GATKException("Tried to merge a mapped and an unmapped genome loc");
+                throw new GATKException("Tried to merge a mapped and an unmapped genome unclippedLoc");
             }
             return UNMAPPED;
         }
 
         if (!(this.contiguousP(that))) {
-            throw new GATKException("The two genome loc's need to be contiguous");
+            throw new GATKException("The two genome unclippedLoc's need to be contiguous");
         }
 
         return new GenomeLoc(getContig(), this.contigIndex,
@@ -153,7 +153,7 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     /**
      * Splits the contig into to regions: [start,split point) and [split point, end].
      * @param splitPoint The point at which to split the contig.  Must be contained in the given interval.
-     * @return A two element array consisting of the genome loc before the split and the one after.
+     * @return A two element array consisting of the genome unclippedLoc before the split and the one after.
      */
     public GenomeLoc[] split(final int splitPoint) {
         if(splitPoint < getStart() || splitPoint > getStop()) {
@@ -167,13 +167,13 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     public GenomeLoc intersect( final GenomeLoc that ) throws GATKException {
         if(GenomeLoc.isUnmapped(this) || GenomeLoc.isUnmapped(that)) {
             if(! GenomeLoc.isUnmapped(this) || !GenomeLoc.isUnmapped(that)) {
-                throw new GATKException("Tried to intersect a mapped and an unmapped genome loc");
+                throw new GATKException("Tried to intersect a mapped and an unmapped genome unclippedLoc");
             }
             return UNMAPPED;
         }
 
         if (!(this.overlapsP(that))) {
-            throw new GATKException("GenomeLoc::intersect(): The two genome loc's need to overlap");
+            throw new GATKException("GenomeLoc::intersect(): The two genome unclippedLoc's need to overlap");
         }
 
         return new GenomeLoc(getContig(), this.contigIndex,
@@ -184,13 +184,13 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     public final List<GenomeLoc> subtract( final GenomeLoc that ) {
         if(GenomeLoc.isUnmapped(this) || GenomeLoc.isUnmapped(that)) {
             if(! GenomeLoc.isUnmapped(this) || !GenomeLoc.isUnmapped(that)) {
-                throw new GATKException("Tried to intersect a mapped and an unmapped genome loc");
+                throw new GATKException("Tried to intersect a mapped and an unmapped genome unclippedLoc");
             }
             return Arrays.asList(UNMAPPED);
         }
 
         if (!(this.overlapsP(that))) {
-            throw new GATKException("GenomeLoc::minus(): The two genome loc's need to overlap");
+            throw new GATKException("GenomeLoc::minus(): The two genome unclippedLoc's need to overlap");
         }
 
         if (equals(that)) {
@@ -347,8 +347,8 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
 
 
     /**
-     * conpare this genomeLoc's contig to another genome loc
-     * @param that the genome loc to compare contigs with
+     * conpare this genomeLoc's contig to another genome unclippedLoc
+     * @param that the genome unclippedLoc to compare contigs with
      * @return 0 if equal, -1 if that.contig is greater, 1 if this.contig is greater
      */
     public final int compareContigs( final GenomeLoc that ) {
@@ -430,7 +430,7 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
 
     /**
      * Returns the maximum GenomeLoc of this and other
-     * @param other another non-null genome loc
+     * @param other another non-null genome unclippedLoc
      * @return the max of this and other
      */
     public GenomeLoc max(final GenomeLoc other) {
@@ -443,7 +443,7 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
      *
      * @param a   GenomeLoc #1
      * @param b   GenomeLoc #2
-     * @return one merged loc
+     * @return one merged unclippedLoc
      */
     public static <T extends GenomeLoc> GenomeLoc merge(final T a, final T b) {
         if ( isUnmapped(a) || isUnmapped(b) ) {
@@ -461,7 +461,7 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
      * Merges a list of *sorted* *contiguous* locs into 1
      *
      * @param sortedLocs a sorted list of contiguous locs
-     * @return one merged loc
+     * @return one merged unclippedLoc
      */
     public static <T extends GenomeLoc> GenomeLoc merge(final SortedSet<T> sortedLocs) {
         GenomeLoc result = null;
@@ -490,7 +490,7 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
      * Works with intervals!
      * Uses the SAMFileHeader to extract the size of the contigs and follows the order in the dictionary.
      *
-     * @param other         the genome loc to compare to
+     * @param other         the genome unclippedLoc to compare to
      * @param samFileHeader the contig information
      * @return the sum of all the bases in between the genomeLocs, including entire contigs
      */
@@ -518,14 +518,14 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     }
 
     /**
-     * create a new genome loc from an existing loc, with a new start position
+     * create a new genome unclippedLoc from an existing unclippedLoc, with a new start position
      * Note that this function will NOT explicitly check the ending offset, in case someone wants to
      * set the start of a new GenomeLoc pertaining to a read that goes off the end of the contig.
      *
      * @param loc   the old location
      * @param start a new start position
      *
-     * @return a newly allocated GenomeLoc as loc but with start == start
+     * @return a newly allocated GenomeLoc as unclippedLoc but with start == start
      */
     public GenomeLoc setStart(final GenomeLoc loc, final int start) {
         Utils.nonNull(loc);
@@ -533,14 +533,14 @@ public class GenomeLoc implements Comparable<GenomeLoc>, Serializable, HasGenome
     }
 
     /**
-     * create a new genome loc from an existing loc, with a new stop position
+     * create a new genome unclippedLoc from an existing unclippedLoc, with a new stop position
      * Note that this function will NOT explicitly check the ending offset, in case someone wants to
      * set the stop of a new GenomeLoc pertaining to a read that goes off the end of the contig.
      *
      * @param loc  the old location
      * @param stop a new stop position
      *
-     * @return a newly allocated GenomeLoc as loc but with stop == stop
+     * @return a newly allocated GenomeLoc as unclippedLoc but with stop == stop
      */
     public GenomeLoc setStop(final GenomeLoc loc, final int stop) {
         Utils.nonNull(loc);

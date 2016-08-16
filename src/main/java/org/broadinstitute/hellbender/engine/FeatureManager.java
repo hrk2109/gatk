@@ -268,7 +268,7 @@ public final class FeatureManager implements AutoCloseable {
      * Given a FeatureInput argument field from our tool, returns an iterator to its features starting
      * from the first one.
      * <p><b>Warning!</b>: calling this method a second time on the same {@link FeatureInput}
-     * on the same FeatureManager instance will invalidate (close) the iterator returned from
+     * on the same FeatureManager instance will invalidate (flush) the iterator returned from
      * the first call.
      * </p>
      * <p>

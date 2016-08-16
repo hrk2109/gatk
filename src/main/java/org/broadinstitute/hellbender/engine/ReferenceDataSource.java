@@ -83,7 +83,7 @@ public interface ReferenceDataSource extends GATKDataSource<Byte>, AutoCloseable
     public SAMSequenceDictionary getSequenceDictionary();
 
     /**
-     * Permanently close this data source. The default implementation does nothing.
+     * Permanently flush this data source. The default implementation does nothing.
      */
     @Override
     default public void close(){

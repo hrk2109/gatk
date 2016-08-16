@@ -133,7 +133,7 @@ public interface TargetCollection<E> {
      * <p>
      *    This method will return a negative value if there is no such a target.
      *    This value can be transformed to recover the position where the query location would be inserted
-     *    if it was present as <code>-(index(loc) + 1)</code>.
+     *    if it was present as <code>-(index(unclippedLoc) + 1)</code>.
      * </p>
      *
      * <p>

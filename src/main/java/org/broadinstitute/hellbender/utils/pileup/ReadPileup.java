@@ -24,19 +24,19 @@ public final class ReadPileup implements Iterable<PileupElement>{
 
 
     /**
-     * Create a new pileup at loc, using the reads and their corresponding
+     * Create a new pileup at unclippedLoc, using the reads and their corresponding
      * offsets.
      * Note: This constructor keeps an alias to the given list.
      */
     public ReadPileup(final Locatable loc, final List<PileupElement> pileup) {
-        Utils.nonNull(loc, "loc is null");
+        Utils.nonNull(loc, "unclippedLoc is null");
         Utils.nonNull(pileup, "element list is null");
         this.loc = loc;
         this.pileupElements = pileup;
     }
 
     /**
-     * Create a new pileup at loc, using an stratified pileup
+     * Create a new pileup at unclippedLoc, using an stratified pileup
      * Note: the current implementation of ReadPileup does not efficiently retrieve the stratified pileup
      */
     public ReadPileup(final Locatable loc, final Map<String, ReadPileup> stratifiedPileup) {

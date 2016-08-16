@@ -323,7 +323,7 @@ public final class FeatureDataSource<T extends Feature> implements GATKDataSourc
         closeOpenIterationIfNecessary();
 
         try {
-            // Save the iterator returned so that we can close it properly later
+            // Save the iterator returned so that we can flush it properly later
             currentIterator = intervalsForTraversal != null ? new FeatureIntervalIterator<T>(intervalsForTraversal, featureReader, featureInput.getFeaturePath())
                                                             : featureReader.iterator();
             return currentIterator;
@@ -444,7 +444,7 @@ public final class FeatureDataSource<T extends Feature> implements GATKDataSourc
     }
 
     /**
-     * Permanently close this data source, invalidating any open iteration over it, and making it invalid for future
+     * Permanently flush this data source, invalidating any open iteration over it, and making it invalid for future
      * iterations and queries.
      */
     @Override

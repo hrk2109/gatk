@@ -5,10 +5,6 @@ import htsjdk.samtools.Cigar;
 import htsjdk.samtools.CigarElement;
 import htsjdk.samtools.CigarOperator;
 import htsjdk.samtools.SAMFileHeader;
-import htsjdk.samtools.util.CigarUtil;
-import htsjdk.samtools.util.TestUtil;
-import org.broadinstitute.hellbender.utils.read.CigarConversionUtils;
-import org.broadinstitute.hellbender.utils.read.CigarUtils;
 import org.broadinstitute.hellbender.utils.read.GATKRead;
 import org.broadinstitute.hellbender.utils.read.GATKReadWriter;
 import org.broadinstitute.hellbender.utils.test.BaseTest;
@@ -18,7 +14,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -54,7 +49,7 @@ public final class SplitNCigarReadsUnitTest extends BaseTest {
         //Testing that bogus splits make it through unaffected
         GATKRead read1 = ReadClipperTestUtils.makeReadFromCigar("1S4N2S3N4H");
         SplitNCigarReads.splitNCigarRead(read1, manager,true, header, true);
-        manager.close();
+        manager.flush();
         Assert.assertEquals(1, writer.writtenReads.size());
         Assert.assertEquals("1S4N2S3N4H", writer.writtenReads.get(0).getCigar().toString());
 
@@ -64,7 +59,7 @@ public final class SplitNCigarReadsUnitTest extends BaseTest {
         manager.activateWriting();
         GATKRead read2 = ReadClipperTestUtils.makeReadFromCigar("1S3N2M10N1M4H");
         SplitNCigarReads.splitNCigarRead(read2, manager,true, header, true);
-        manager.close();
+        manager.flush();
         Assert.assertEquals(2, writer.writtenReads.size());
         Assert.assertEquals("1S2M1S4H", writer.writtenReads.get(0).getCigar().toString());
         Assert.assertEquals(Math.toIntExact(writer.writtenReads.get(0).getAttributeAsInteger("NM")), 0); // testing that NM tags are assigned properly
@@ -77,7 +72,7 @@ public final class SplitNCigarReadsUnitTest extends BaseTest {
         GATKRead read3 = ReadClipperTestUtils.makeReadFromCigar("1H2M2D1M2N1M2I1N1M2S1N2S1N2S");
         read3.setAttribute("MC", "11M4N11M");
         SplitNCigarReads.splitNCigarRead(read3, manager,true, header, true);
-        manager.close();
+        manager.flush();
         Assert.assertEquals(3, writer.writtenReads.size());
         Assert.assertEquals("1H2M2D1M10S", writer.writtenReads.get(0).getCigar().toString());
         Assert.assertEquals("1H3S1M2I7S", writer.writtenReads.get(1).getCigar().toString());

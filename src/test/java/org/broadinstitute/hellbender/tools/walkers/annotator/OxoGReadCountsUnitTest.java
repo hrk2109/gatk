@@ -150,7 +150,7 @@ public final class OxoGReadCountsUnitTest {
         final GATKRead badRead = ArtificialReadUtils.createArtificialRead(TextCigarCodec.decode(10 + "M"));
         badRead.setMappingQuality(20);
         map.add(badRead, refAllele, -1.0);
-        map.add(badRead, altAllele, -1.1); //maybe it's ref, maybe it's alt, too close to call -> not informative
+        map.add(badRead, altAllele, -1.1); //maybe it's ref, maybe it's alt, too flush to call -> not informative
 
         return new VariantContextBuilder("test", "20", 10, 10, alleles).genotypes(Arrays.asList(g)).make();
     }
