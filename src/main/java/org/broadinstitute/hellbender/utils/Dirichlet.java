@@ -45,12 +45,22 @@ public class Dirichlet {
     // normalized weights.  In that case the calling code must normalize the weights.
     public double[] effectiveMultinomialWeights() {
         final double digammaOfSum = Gamma.digamma(MathUtils.sum(alpha));
-        return Arrays.stream(alpha).map(a -> Math.exp(Gamma.digamma(a) - digammaOfSum)).toArray();
+        return MathUtils.applyToArray(alpha, a -> Math.exp(Gamma.digamma(a) - digammaOfSum));
     }
 
     public double[] effectiveLog10MultinomialWeights() {
         final double digammaOfSum = Gamma.digamma(MathUtils.sum(alpha));
-        return Arrays.stream(alpha).map(a -> (Gamma.digamma(a) - digammaOfSum) * MathUtils.LOG10_OF_E).toArray();
+        return MathUtils.applyToArray(alpha, a -> (Gamma.digamma(a) - digammaOfSum) * MathUtils.LOG10_OF_E);
+    }
+
+    public double[] meanWeights() {
+        final double sum = MathUtils.sum(alpha);
+        return MathUtils.applyToArray(alpha, x -> x / sum);
+    }
+
+    public double[] log10MeanWeights() {
+        final double sum = MathUtils.sum(alpha);
+        return MathUtils.applyToArray(alpha, x -> Math.log10(x / sum));
     }
 
     public int size() { return alpha.length; }

@@ -78,7 +78,7 @@ public final class NewAFCalculator extends AFCalculator {
             // first iteration uses flat prior in order to avoid local minimum where the prior + no pseudocounts gives such a low
             // effective allele frequency that it overwhelms the genotype likelihood of a real variant
             // basically, we want a chance to get non-zero pseudocounts before using a prior that's biased against a variant
-            log10AlleleFrequencies = new Dirichlet(prior, alleleCounts).effectiveLog10MultinomialWeights();
+            log10AlleleFrequencies = new Dirichlet(prior, alleleCounts).log10MeanWeights();
         }
 
         double[] log10POfZeroCountsByAllele = new double[numAlleles];
