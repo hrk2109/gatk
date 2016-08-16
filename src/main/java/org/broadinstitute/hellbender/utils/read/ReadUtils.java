@@ -1133,7 +1133,9 @@ public final class ReadUtils {
      * @throws UserException 
      */
     public static void setReadsAsSupplemental(GATKRead primaryRead, List<GATKRead> supplementalReads) {
-        List<String> orderedTags = new LinkedList<>();
+        Utils.nonNull(primaryRead);
+        Utils.nonEmpty(supplementalReads);
+        List<String> orderedTags = new ArrayList<>();
         orderedTags.add(String.format("%s,%d,%s,%s,%s,%s;",
                 ((primaryRead.getName()!=null)?primaryRead.getName():"*"),
                 primaryRead.getStart(),

@@ -16,7 +16,7 @@ import java.util.Arrays;
  */
 public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTest {
 
-    @Test (enabled = true)
+    @Test
     public void testSplitsWithOverhangs()  throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "-R " + b37_reference_20_21 + " -I " + largeFileTestDir + "NA12878.RNAseq.bam -O %s --processSecondaryAlignments",
@@ -24,7 +24,7 @@ public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTes
         spec.executeTest("test splits with overhangs", this);
     }
 
-    @Test (enabled = true)
+    @Test
     public void testSplitsWithOverhangsNotClipping() throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "--doNotFixOverhangs -R " + b37_reference_20_21 + " -I " + largeFileTestDir + "NA12878.RNAseq.bam -O %s --processSecondaryAlignments",
@@ -32,7 +32,7 @@ public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTes
         spec.executeTest("test splits with overhangs not clipping", this);
     }
 
-    @Test (enabled = true)
+    @Test
     public void testSplitsWithOverhangs0Mismatches() throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "--maxMismatchesInOverhang 0 -R " + b37_reference_20_21 + " -I " + largeFileTestDir + "NA12878.RNAseq.bam -O %s --processSecondaryAlignments",
@@ -40,7 +40,7 @@ public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTes
         spec.executeTest("test splits with overhangs 0 mismatches", this);
     }
 
-    @Test (enabled = true)
+    @Test
     public void testSplitsWithOverhangs5BasesInOverhang()  throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "--maxBasesInOverhang 5 -R " + b37_reference_20_21 + " -I " + largeFileTestDir + "NA12878.RNAseq.bam -O %s --processSecondaryAlignments",
@@ -48,7 +48,7 @@ public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTes
         spec.executeTest("test splits with overhangs 5 bases in overhang", this);
     }
 
-    @Test (enabled = true)
+    @Test
     public void testSplitsFixNDN() throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "-R " + b37_reference_20_21 + " -I " + getTestDataDir() +"/" + "splitNCigarReadsSnippet.bam -O %s -fixNDN --processSecondaryAlignments",
@@ -56,7 +56,7 @@ public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTes
         spec.executeTest("test fix NDN", this);
     }
 
-    @Test (enabled = true) //regression test for https://github.com/broadinstitute/gatk/pull/1853
+    @Test //regression test for https://github.com/broadinstitute/gatk/pull/1853
     public void testSplitsOfUnpairedAndUnmappedReads() throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "-R" + b37_reference_20_21 + " -I " + largeFileTestDir + "K-562.duplicateMarked.chr20.bam -O %s --processSecondaryAlignments",
@@ -64,7 +64,7 @@ public final class SplitNCigarReadsIntegrationTest extends CommandLineProgramTes
         spec.executeTest("regression test for unmapped and unpaired reads", this);
     }
 
-    @Test (enabled = true) //regression test for https://github.com/broadinstitute/gatk/pull/1864
+    @Test //regression test for https://github.com/broadinstitute/gatk/pull/1864
     public void testSplitsTargetRegionFunctionality() throws Exception {
         IntegrationTestSpec spec = new IntegrationTestSpec(
                 "-R" + b37_reference_20_21 + " -I " + largeFileTestDir + "NA12878.RNAseq.bam -O %s -L 20:2444518-2454410 --processSecondaryAlignments",

@@ -268,10 +268,9 @@ public final class SplitNCigarReads extends TwoPassReadWalker {
      */
     public static void repairSupplementaryTags(List<GATKRead> readFamily, SAMFileHeader header) {
         for (GATKRead read : readFamily) {
-            if (readFamily.size() > 1) {
-                read.clearAttribute("NH");
+            for (String attribute : TAGS_TO_REMOVE) {
+                read.clearAttribute(attribute);
             }
-            read.setAttribute("NM", SequenceUtil.calculateSamNmTagFromCigar(read.convertToSAMRecord(header)));
         }
         if (readFamily.size() > 1) {
             GATKRead primary = readFamily.remove(0);

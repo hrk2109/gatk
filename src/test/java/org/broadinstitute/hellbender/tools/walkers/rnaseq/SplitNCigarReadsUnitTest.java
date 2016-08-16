@@ -31,6 +31,7 @@ public final class SplitNCigarReadsUnitTest extends BaseTest {
             new CigarElement(1, CigarOperator.MATCH_OR_MISMATCH),
             new CigarElement(1, CigarOperator.SKIPPED_REGION)
     };
+    private SAMFileHeader header = new SAMFileHeader();;
 
     private final class TestManager extends OverhangFixingManager {
         public TestManager( final SAMFileHeader header , DummyTestWriter writer) {
@@ -41,31 +42,45 @@ public final class SplitNCigarReadsUnitTest extends BaseTest {
     @Test
     public void testBogusNSplits() {
         DummyTestWriter writer = new DummyTestWriter();
-        final SAMFileHeader header = new SAMFileHeader();
         header.setSequenceDictionary(hg19GenomeLocParser.getSequenceDictionary());
         TestManager manager = new TestManager(header, writer);
         manager.activateWriting();
 
         //Testing that bogus splits make it through unaffected
         GATKRead read1 = ReadClipperTestUtils.makeReadFromCigar("1S4N2S3N4H");
-        SplitNCigarReads.splitNCigarRead(read1, manager,true, header, true);
+        SplitNCigarReads.splitNCigarRead(read1, manager, true, header, true);
         manager.flush();
         Assert.assertEquals(1, writer.writtenReads.size());
         Assert.assertEquals("1S4N2S3N4H", writer.writtenReads.get(0).getCigar().toString());
+    }
 
+    @Test
+    public void testBogusMidNSection() {
         //Testing that bogus subsections dont end up clipped
-        writer = new DummyTestWriter();
+        DummyTestWriter writer = new DummyTestWriter();
+        header.setSequenceDictionary(hg19GenomeLocParser.getSequenceDictionary());
+        TestManager manager = new TestManager(header, writer);
+        manager.activateWriting();
+
         manager = new TestManager(header, writer);
         manager.activateWriting();
         GATKRead read2 = ReadClipperTestUtils.makeReadFromCigar("1S3N2M10N1M4H");
-        SplitNCigarReads.splitNCigarRead(read2, manager,true, header, true);
+        SplitNCigarReads.splitNCigarRead(read2, manager, true, header, true);
         manager.flush();
         Assert.assertEquals(2, writer.writtenReads.size());
         Assert.assertEquals("1S2M1S4H", writer.writtenReads.get(0).getCigar().toString());
         Assert.assertEquals(Math.toIntExact(writer.writtenReads.get(0).getAttributeAsInteger("NM")), 0); // testing that NM tags are assigned properly
         Assert.assertEquals("3S1M4H", writer.writtenReads.get(1).getCigar().toString());
+    }
 
+    @Test
+    public void testSplitNComplexCase() {
         //Complex Case involving insertions & deletions
+        DummyTestWriter writer = new DummyTestWriter();
+        header.setSequenceDictionary(hg19GenomeLocParser.getSequenceDictionary());
+        TestManager manager = new TestManager(header, writer);
+
+        manager.activateWriting();
         writer = new DummyTestWriter();
         manager = new TestManager(header, writer);
         manager.activateWriting();
@@ -166,7 +181,7 @@ public final class SplitNCigarReadsUnitTest extends BaseTest {
         }
     }
 
-    private class DummyTestWriter implements GATKReadWriter {
+    private static class DummyTestWriter implements GATKReadWriter {
         public List<GATKRead> writtenReads = new ArrayList<>();
         public void close() {}
         @Override
